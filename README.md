@@ -2,13 +2,19 @@
 
 Simple **Godot 4.7+** project for 3-axis CNC **raster** toolpaths over a mesh.
 
-Bake writes editor-loadable assets:
-- `animations/raster_toolpath_lines.tres` — line-strip `ArrayMesh` assigned to `ToolpathPreview` (editor-visible)
-- `animations/raster_toolpath.tres` — `Animation` for the Tool node
+## Pipeline
 
-No Path3D — preview is the line mesh.
+1. **`raster_pass_planner.gd`** — 2D raster as a line mesh (**one LINE_STRIP surface per pass**)
+2. **`raster_project_to_mesh.gd`** — project that 2D mesh onto the part with **tool definition + tolerances** → 3D line mesh
+3. **`toolpath_animation.gd`** — projected points → `Animation`
+4. **`raster_baker.gd`** — UI glue + save assets
 
-**Units:** Godot scene = **metres**. STL source is mm; mesh is imported ×0.001 (~72 mm wide). Bake UI spinboxes are in **mm**.
+Assets:
+- `animations/raster_passes_2d.tres` — yellow 2D passes (`Raster2DPreview`)
+- `animations/raster_toolpath_lines.tres` — cyan projected 3D path (`ToolpathPreview`)
+- `animations/raster_toolpath.tres` — Animation
+
+**Units:** metres in-scene; Bake UI in mm. **Play:** MMB orbit, Shift+MMB pan, wheel zoom.
 
 ## Quick start
 
@@ -18,19 +24,8 @@ cd godot-cnc-toolpath
 git pull
 ```
 
-1. Open this folder in **Godot 4.7+**
-2. Open `scenes/main.tscn` — flat-shaded eartip, base plane, **cyan line-mesh toolpath** already on ToolpathPreview
-3. Press Play — **MMB drag** orbits, **Shift+MMB** pans, **wheel** zooms (same idea as the Godot editor); tweak params → **Bake**
-
-Bake pipeline:
-1. `raster_pass_planner.gd` — 2D zigzag passes
-2. `raster_toolpath_calc.gd` — `compute_line_mesh(passes, mesh, tool)` → line mesh
-3. `toolpath_animation.gd` — points/line mesh → `Animation`
-4. `raster_baker.gd` — UI glue + save under `animations/`
-
-## Notes
-
-Visual/algorithm sandbox — not production CAM.
+1. Open in **Godot 4.7+** → `scenes/main.tscn`
+2. Press Play → Bake
 
 ## License
 

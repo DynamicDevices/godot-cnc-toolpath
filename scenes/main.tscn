@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/load_obj_mesh.gd" id="2"]
 [ext_resource type="AnimationLibrary" path="res://animations/cnc_library.tres" id="3"]
@@ -37,6 +37,13 @@ emission_enabled = true
 emission = Color(0.1, 0.6, 0.9, 1)
 emission_energy_multiplier = 2.0
 
+[sub_resource type="StandardMaterial3D" id="mat_2d"]
+shading_mode = 0
+albedo_color = Color(1.0, 0.85, 0.15, 1)
+emission_enabled = true
+emission = Color(0.9, 0.7, 0.05, 1)
+emission_energy_multiplier = 2.0
+
 [node name="Main" type="Node3D"]
 script = ExtResource("5")
 safe_y_mm = 90.0
@@ -66,6 +73,9 @@ material_override = SubResource("mat_base")
 mesh = ExtResource("7")
 material_override = SubResource("mat_part")
 script = ExtResource("2")
+
+[node name="Raster2DPreview" type="MeshInstance3D" parent="."]
+material_override = SubResource("mat_2d")
 
 [node name="ToolpathPreview" type="MeshInstance3D" parent="."]
 mesh = ExtResource("8")
@@ -137,5 +147,5 @@ text = "Bake toolpath"
 
 [node name="Status" type="Label" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
-text = "MMB orbit, Shift+MMB pan, wheel zoom (editor-like). Bake = calc → line mesh + Animation."
+text = "Yellow=2D passes (per-line), cyan=projected 3D. MMB orbit / Shift+MMB pan."
 autowrap_mode = 3
