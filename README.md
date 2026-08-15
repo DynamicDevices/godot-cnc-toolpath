@@ -5,7 +5,7 @@ Simple **Godot 4.7+** project for 3-axis CNC **raster** toolpaths over a mesh.
 ## Pipeline
 
 1. **`raster_pass_planner.gd`** — 2D raster as a line mesh (**one LINE_STRIP surface per pass**)
-2. **`raster_project_to_mesh.gd`** — project that 2D mesh onto the part with **tool definition + tolerances** → 3D line mesh
+2. **`raster_project_to_mesh.gd`** — `compute_line_mesh(passes, mesh, tool)` projects by **tool-shape vs mesh collision** (ball-nose drop-cutter on triangles — not Physics raycasts) → 3D line mesh
 3. **`toolpath_animation.gd`** — projected points → `Animation`
 4. **`raster_baker.gd`** — UI glue + save assets
 
