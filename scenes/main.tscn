@@ -137,5 +137,5 @@ text = "Bake toolpath"
 
 [node name="Status" type="Label" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
-text = "LMB drag orbit, wheel zoom. Bake = calc module → line mesh + Animation."
+text = "MMB orbit, Shift+MMB pan, wheel zoom (editor-like). Bake = calc → line mesh + Animation."
 autowrap_mode = 3

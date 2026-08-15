@@ -20,7 +20,7 @@ git pull
 
 1. Open this folder in **Godot 4.7+**
 2. Open `scenes/main.tscn` — flat-shaded eartip, base plane, **cyan line-mesh toolpath** already on ToolpathPreview
-3. Press Play — **LMB drag** orbits, **wheel** zooms; tweak params → **Bake**
+3. Press Play — **MMB drag** orbits, **Shift+MMB** pans, **wheel** zooms (same idea as the Godot editor); tweak params → **Bake**
 
 Bake pipeline: `RasterToolpathCalc` (mesh + tool → points/line mesh) then unpack into Animation + save under `animations/`.
 
