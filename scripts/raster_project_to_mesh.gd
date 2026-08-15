@@ -136,23 +136,25 @@ static func _ball_drop_y(x: float, z: float, R: float, tris: Array, fallback_y: 
 		var b: Vector3 = tri[1]
 		var c: Vector3 = tri[2]
 		# Vertex contributions.
-		for v in [a, b, c]:
-			var dx := x - v.x
-			var dz := z - v.z
-			var d2 := dx * dx + dz * dz
+		for vi in 3:
+			var v: Vector3 = tri[vi]
+			var dx: float = x - v.x
+			var dz: float = z - v.z
+			var d2: float = dx * dx + dz * dz
 			if d2 <= R2:
-				var y := v.y + sqrt(R2 - d2)
+				var y: float = v.y + sqrt(R2 - d2)
 				if y > y_best:
 					y_best = y
 					found = true
 		# Edge contributions.
-		for edge in [[a, b], [b, c], [c, a]]:
-			var y_e := _ball_edge_y(x, z, R, edge[0], edge[1])
+		var edges: Array = [[a, b], [b, c], [c, a]]
+		for edge in edges:
+			var y_e: float = _ball_edge_y(x, z, R, edge[0], edge[1])
 			if not is_nan(y_e) and y_e > y_best:
 				y_best = y_e
 				found = true
 		# Face (plane) contribution if vertical projection of centre lies in triangle.
-		var y_f := _ball_face_y(x, z, R, a, b, c)
+		var y_f: float = _ball_face_y(x, z, R, a, b, c)
 		if not is_nan(y_f) and y_f > y_best:
 			y_best = y_f
 			found = true
