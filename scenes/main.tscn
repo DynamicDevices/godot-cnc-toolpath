@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/load_obj_mesh.gd" id="2"]
 [ext_resource type="AnimationLibrary" path="res://animations/cnc_library.tres" id="3"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/toolpath_ui.gd" id="6"]
 [ext_resource type="ArrayMesh" path="res://meshes/eartip.obj" id="7"]
 [ext_resource type="ArrayMesh" path="res://animations/raster_toolpath_lines.tres" id="8"]
+[ext_resource type="Script" path="res://scripts/orbit_camera.gd" id="9"]
 
 [sub_resource type="StandardMaterial3D" id="mat_part"]
 albedo_color = Color(0.72, 0.68, 0.58, 1)
@@ -43,10 +44,11 @@ feed_mm_per_sec = 40.0
 margin_mm = 1.0
 
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(0.866, -0.25, 0.433, 0, 0.866, 0.5, -0.5, -0.433, 0.75, 0.12, 0.1, 0.16)
 current = true
 far = 5.0
 near = 0.001
+script = ExtResource("9")
+target_path = NodePath("../MeshRoot")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.866, -0.354, 0.354, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 0, 0.3, 0.1)
@@ -135,5 +137,5 @@ text = "Bake toolpath"
 
 [node name="Status" type="Label" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
-text = "Line-mesh preview on ToolpathPreview (no Path3D)."
+text = "LMB drag orbit, wheel zoom. Bake = calc module → line mesh + Animation."
 autowrap_mode = 3
