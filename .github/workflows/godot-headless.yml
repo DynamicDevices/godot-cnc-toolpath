@@ -1,7 +1,7 @@
 name: Godot headless check
 
 # Non-blocking for Julian: no branch-protection required checks.
-# Self-hosted preferred (Alex). Failures show in Actions; tell Julian in-group if red.
+# Self-hosted + Godot Docker (Alex). Failures show in Actions; tell group if red.
 
 on:
   push:
@@ -16,45 +16,40 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Ensure Godot 4.6.1
-        id: godot
+      - name: Import + headless bake (Godot Docker)
         run: |
           set -euo pipefail
-          GODOT_DIR="${RUNNER_TEMP:-/tmp}/godot-ci"
-          mkdir -p "$GODOT_DIR"
-          BIN="$GODOT_DIR/Godot_v4.6.1-stable_linux.x86_64"
-          if [[ ! -x "$BIN" ]]; then
-            curl -fsSL -o "$GODOT_DIR/godot.zip" \
-              "https://github.com/godotengine/godot/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip"
-            python3 -m zipfile -e "$GODOT_DIR/godot.zip" "$GODOT_DIR"
-            chmod +x "$BIN"
-          fi
-          echo "bin=$BIN" >> "$GITHUB_OUTPUT"
-          "$BIN" --version
-
-      - name: Import + headless bake
-        run: |
-          set -euo pipefail
-          GODOT="${{ steps.godot.outputs.bin }}"
-          "$GODOT" --headless --path "$GITHUB_WORKSPACE" --import
-          # Fail on script parse / bake failure markers
-          set +e
-          OUT=$(mktemp)
-          "$GODOT" --headless --path "$GITHUB_WORKSPACE" -s res://tools/bake_once.gd 2>&1 | tee "$OUT"
-          RC=${PIPESTATUS[0]}
-          set -e
-          if grep -E 'Parse Error|Failed to load script|BAKE_FAIL' "$OUT"; then
-            echo "::error::Godot script/bake failure"
-            exit 1
-          fi
-          grep -q 'BAKE_OK' "$OUT"
-          exit "$RC"
+          IMAGE=ghcr.io/sharkyrawr/godot-docker:4.6
+          docker pull "$IMAGE"
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/src:rw" \
+            -w /src \
+            --entrypoint "" \
+            -e HOME=/tmp \
+            -u "$(id -u):$(id -g)" \
+            "$IMAGE" \
+            bash -lc '
+              set -euo pipefail
+              godot --version
+              godot --headless --path /src --import
+              OUT=$(mktemp)
+              set +e
+              godot --headless --path /src -s res://tools/bake_once.gd 2>&1 | tee "$OUT"
+              RC=${PIPESTATUS[0]}
+              set -e
+              if grep -E "Parse Error|Failed to load script|BAKE_FAIL" "$OUT"; then
+                echo "::error::Godot script/bake failure"
+                exit 1
+              fi
+              grep -q BAKE_OK "$OUT"
+              exit "$RC"
+            '
 
       - name: Summarize
         if: always()
         run: |
           echo "### Godot CI" >> "$GITHUB_STEP_SUMMARY"
-          echo "Self-hosted headless bake of scenes/main.tscn via tools/bake_once.gd" >> "$GITHUB_STEP_SUMMARY"
+          echo "Self-hosted Docker image \`ghcr.io/sharkyrawr/godot-docker:4.6\` — headless bake via \`tools/bake_once.gd\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
