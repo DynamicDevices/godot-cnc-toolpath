@@ -22,7 +22,11 @@ git pull
 2. Open `scenes/main.tscn` — flat-shaded eartip, base plane, **cyan line-mesh toolpath** already on ToolpathPreview
 3. Press Play — **MMB drag** orbits, **Shift+MMB** pans, **wheel** zooms (same idea as the Godot editor); tweak params → **Bake**
 
-Bake pipeline: `RasterToolpathCalc` (mesh + tool → points/line mesh) then unpack into Animation + save under `animations/`.
+Bake pipeline:
+1. `raster_pass_planner.gd` — 2D zigzag passes
+2. `raster_toolpath_calc.gd` — `compute_line_mesh(passes, mesh, tool)` → line mesh
+3. `toolpath_animation.gd` — points/line mesh → `Animation`
+4. `raster_baker.gd` — UI glue + save under `animations/`
 
 ## Notes
 

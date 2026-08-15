@@ -1,18 +1,17 @@
 class_name RasterToolpathCalc
 extends RefCounted
-## Pure raster toolpath calculation.
-## Input: mesh (via world raycasts), tool radius / stepover / sample (metres).
-## Output: ordered tool centre points (PackedVector3Array). Caller builds line mesh + Animation.
+## Toolpath calculation only.
+## Input: 2D passes + mesh (via world raycasts) + tool definition.
+## Output: line-strip ArrayMesh (and the underlying points).
 
-static func compute(
-	space: PhysicsDirectSpaceState3D,
-	mesh_inst: MeshInstance3D,
-	tool_radius: float,
-	stepover: float,
-	sample_step: float,
-	safe_y: float,
-	margin: float
-) -> PackedVector3Array:
+class ToolDef:
+	var radius: float = 0.0015
+	var safe_y: float = 0.09
+	func _init(p_radius: float = 0.0015, p_safe_y: float = 0.09) -> void:
+		radius = p_radius
+		safe_y = p_safe_y
+
+static func mesh_bounds_xz(mesh_inst: MeshInstance3D, margin: float) -> Dictionary:
 	var aabb := mesh_inst.get_aabb()
 	var xf := mesh_inst.global_transform
 	var corners: Array[Vector3] = []
@@ -23,7 +22,6 @@ static func compute(
 			aabb.position.z + (aabb.size.z if (i & 4) else 0.0)
 		)
 		corners.append(xf * local)
-
 	var min_x := corners[0].x
 	var max_x := corners[0].x
 	var min_z := corners[0].z
@@ -35,72 +33,56 @@ static func compute(
 		min_z = minf(min_z, c.z)
 		max_z = maxf(max_z, c.z)
 		max_y = maxf(max_y, c.y)
+	return {
+		"min_x": min_x + margin,
+		"max_x": max_x - margin,
+		"min_z": min_z + margin,
+		"max_z": max_z - margin,
+		"max_y": max_y,
+	}
 
-	min_x += margin
-	max_x -= margin
-	min_z += margin
-	max_z -= margin
-
+## Core API Julian asked for: 2D passes + mesh + tool → line mesh.
+static func compute_line_mesh(
+	passes: Array,
+	space: PhysicsDirectSpaceState3D,
+	mesh_inst: MeshInstance3D,
+	tool: ToolDef,
+	y_start_pad: float = 0.05
+) -> Dictionary:
 	var points := PackedVector3Array()
-	var row := 0
-	var z := min_z
-	var y_start := max_y + 0.05
-	while z <= max_z + 1e-9:
-		var xs: Array[float] = []
-		var x := min_x
-		while x <= max_x + 1e-9:
-			xs.append(x)
-			x += sample_step
-		if row % 2 == 1:
-			xs.reverse()
-		if xs.size() > 0:
-			points.append(Vector3(xs[0], safe_y, z))
-		for sx in xs:
+	var aabb := mesh_inst.get_aabb()
+	var top := mesh_inst.global_transform * (aabb.position + Vector3(aabb.size.x * 0.5, aabb.size.y, aabb.size.z * 0.5))
+	var y_start := top.y + y_start_pad
+
+	for pass_pts in passes:
+		var row: PackedVector2Array = pass_pts
+		if row.is_empty():
+			continue
+		# Lead-in at safe height.
+		points.append(Vector3(row[0].x, tool.safe_y, row[0].y))
+		for xz in row:
 			var q := PhysicsRayQueryParameters3D.create(
-				Vector3(sx, y_start, z),
-				Vector3(sx, -0.05, z)
+				Vector3(xz.x, y_start, xz.y),
+				Vector3(xz.x, -0.05, xz.y)
 			)
 			var hit := space.intersect_ray(q)
 			if hit:
 				var p: Vector3 = hit.position
-				p.y += tool_radius
+				p.y += tool.radius
 				points.append(p)
 			else:
-				points.append(Vector3(sx, safe_y, z))
-		if points.size() > 0:
-			var last: Vector3 = points[points.size() - 1]
-			points.append(Vector3(last.x, safe_y, last.z))
-		z += stepover
-		row += 1
-	return points
+				points.append(Vector3(xz.x, tool.safe_y, xz.y))
+		var last: Vector3 = points[points.size() - 1]
+		points.append(Vector3(last.x, tool.safe_y, last.z))
+
+	var mesh := make_line_mesh(points)
+	return {"points": points, "mesh": mesh}
 
 static func make_line_mesh(points: PackedVector3Array) -> ArrayMesh:
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = points
 	var am := ArrayMesh.new()
-	am.add_surface_from_arrays(Mesh.PRIMITIVE_LINE_STRIP, arrays)
+	if points.size() >= 2:
+		am.add_surface_from_arrays(Mesh.PRIMITIVE_LINE_STRIP, arrays)
 	return am
-
-static func make_position_animation(
-	points: PackedVector3Array,
-	tool_node_path: NodePath,
-	feed_units_per_sec: float
-) -> Animation:
-	var anim := Animation.new()
-	var track := anim.add_track(Animation.TYPE_POSITION_3D)
-	anim.track_set_path(track, tool_node_path)
-	if points.is_empty():
-		anim.length = 0.0
-		return anim
-	var t := 0.0
-	var prev: Vector3 = points[0]
-	anim.track_insert_key(track, t, prev)
-	for i in range(1, points.size()):
-		var cur: Vector3 = points[i]
-		t += maxf(prev.distance_to(cur) / maxf(feed_units_per_sec, 1e-6), 0.01)
-		anim.track_insert_key(track, t, cur)
-		prev = cur
-	anim.length = t
-	anim.resource_name = "raster_toolpath"
-	return anim
