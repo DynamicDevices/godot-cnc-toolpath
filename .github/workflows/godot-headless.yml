@@ -1,0 +1,60 @@
+name: Godot headless check
+
+# Non-blocking for Julian: no branch-protection required checks.
+# Self-hosted preferred (Alex). Failures show in Actions; tell Julian in-group if red.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  headless-bake:
+    runs-on: self-hosted
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure Godot 4.6.1
+        id: godot
+        run: |
+          set -euo pipefail
+          GODOT_DIR="${RUNNER_TEMP:-/tmp}/godot-ci"
+          mkdir -p "$GODOT_DIR"
+          BIN="$GODOT_DIR/Godot_v4.6.1-stable_linux.x86_64"
+          if [[ ! -x "$BIN" ]]; then
+            curl -fsSL -o "$GODOT_DIR/godot.zip" \
+              "https://github.com/godotengine/godot/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip"
+            unzip -o "$GODOT_DIR/godot.zip" -d "$GODOT_DIR"
+            chmod +x "$BIN"
+          fi
+          echo "bin=$BIN" >> "$GITHUB_OUTPUT"
+          "$BIN" --version
+
+      - name: Import + headless bake
+        run: |
+          set -euo pipefail
+          GODOT="${{ steps.godot.outputs.bin }}"
+          "$GODOT" --headless --path "$GITHUB_WORKSPACE" --import
+          # Fail on script parse / bake failure markers
+          set +e
+          OUT=$(mktemp)
+          "$GODOT" --headless --path "$GITHUB_WORKSPACE" -s res://tools/bake_once.gd 2>&1 | tee "$OUT"
+          RC=${PIPESTATUS[0]}
+          set -e
+          if grep -E 'Parse Error|Failed to load script|BAKE_FAIL' "$OUT"; then
+            echo "::error::Godot script/bake failure"
+            exit 1
+          fi
+          grep -q 'BAKE_OK' "$OUT"
+          exit "$RC"
+
+      - name: Summarize
+        if: always()
+        run: |
+          echo "### Godot CI" >> "$GITHUB_STEP_SUMMARY"
+          echo "Self-hosted headless bake of scenes/main.tscn via tools/bake_once.gd" >> "$GITHUB_STEP_SUMMARY"
+          echo "Status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"

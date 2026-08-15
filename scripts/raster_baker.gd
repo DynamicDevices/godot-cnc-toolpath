@@ -65,7 +65,8 @@ func _on_bake_requested(tool_radius_mm: float, stepover_mm: float, sample_step_m
 
 	# Stage 2 — project 2D passes onto 3D mesh with tool + tolerances.
 	var tool_def = Projector.ToolDef.new(tool_radius, safe_y)
-	var tol = Projector.Tolerances.new(safe_y)
+	# No-hit samples rest on the base plane (plane_y), not clearance/safe height.
+	var tol = Projector.Tolerances.new(plane_y)
 	var projected: Dictionary = Projector.compute_line_mesh(
 		passes,
 		mesh_inst,

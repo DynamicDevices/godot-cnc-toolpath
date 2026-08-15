@@ -13,10 +13,9 @@ class ToolDef:
 		safe_y = p_safe_y
 
 class Tolerances:
-	## Horizontal samples whose planar distance to a feature exceeds radius are ignored.
-	## Vertical clamp if no collision found.
-	var no_hit_y: float = 0.09
-	func _init(p_no_hit_y: float = 0.09) -> void:
+	## Y used when the tool shape does not collide with the mesh (base plane, not clearance).
+	var no_hit_y: float = 0.0
+	func _init(p_no_hit_y: float = 0.0) -> void:
 		no_hit_y = p_no_hit_y
 
 static func project_line_mesh(
@@ -27,7 +26,7 @@ static func project_line_mesh(
 	tol: Tolerances = null
 ) -> Dictionary:
 	if tol == null:
-		tol = Tolerances.new(tool.safe_y)
+		tol = Tolerances.new(0.0)
 	var PassPlanner = load("res://scripts/raster_pass_planner.gd")
 	var passes: Array = PassPlanner.passes_from_2d_line_mesh(mesh_2d)
 	return project_passes(passes, mesh_inst, tool, tol)
@@ -39,7 +38,7 @@ static func project_passes(
 	tol: Tolerances = null
 ) -> Dictionary:
 	if tol == null:
-		tol = Tolerances.new(tool.safe_y)
+		tol = Tolerances.new(0.0)
 	var tris := _world_triangles(mesh_inst)
 	var out_mesh := ArrayMesh.new()
 	var all_points := PackedVector3Array()
