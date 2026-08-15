@@ -1,13 +1,11 @@
 extends Node3D
-## Raster toolpath baker: updates AnimationPlayer + Path3D from UI params.
-## UI values are millimetres; scene units are Godot metres (mm × 0.001).
+## Raster toolpath baker: Bake UI (mm) → Animation + line-mesh preview (metres).
 
 const MM := 0.001
 
 @export var mesh_path: NodePath = NodePath("MeshRoot/Part")
 @export var tool_path: NodePath = NodePath("Tool")
 @export var animation_player_path: NodePath = NodePath("AnimationPlayer")
-@export var path3d_path: NodePath = NodePath("Toolpath")
 @export var preview_path: NodePath = NodePath("ToolpathPreview")
 @export var ui_path: NodePath = NodePath("ToolpathUI")
 @export var safe_y_mm: float = 90.0
@@ -24,14 +22,10 @@ func _on_bake_requested(tool_radius_mm: float, stepover_mm: float, sample_step_m
 	var mesh_inst := get_node(mesh_path) as MeshInstance3D
 	var tool := get_node(tool_path) as MeshInstance3D
 	var anim_player := get_node(animation_player_path) as AnimationPlayer
-	var path3d := get_node_or_null(path3d_path) as Path3D
 	var preview := get_node_or_null(preview_path) as MeshInstance3D
 	var ui := get_node_or_null(ui_path)
-	if mesh_inst == null or tool == null or anim_player == null:
-		push_error("Missing mesh/tool/AnimationPlayer")
-		return
-	if preview == null and path3d == null:
-		push_error("Need ToolpathPreview (line mesh) or Toolpath (Path3D)")
+	if mesh_inst == null or tool == null or anim_player == null or preview == null:
+		push_error("Missing mesh/tool/AnimationPlayer/ToolpathPreview")
 		return
 
 	var tool_radius := tool_radius_mm * MM
@@ -115,17 +109,8 @@ func _on_bake_requested(tool_radius_mm: float, stepover_mm: float, sample_step_m
 			ui.set_status("No points — check mesh collision")
 		return
 
-	# Editor-visible preview: line mesh (Path3D curves preview poorly at mm scale).
 	var line_mesh := _make_line_mesh(points)
-	if preview:
-		preview.mesh = line_mesh
-
-	var curve := Curve3D.new()
-	for p in points:
-		curve.add_point(p)
-	if path3d:
-		path3d.curve = curve
-		path3d.visible = false  # data asset only; preview is the line mesh
+	preview.mesh = line_mesh
 
 	var anim := Animation.new()
 	var track := anim.add_track(Animation.TYPE_POSITION_3D)
@@ -150,10 +135,9 @@ func _on_bake_requested(tool_radius_mm: float, stepover_mm: float, sample_step_m
 
 	DirAccess.make_dir_recursive_absolute("res://animations")
 	var err1 := ResourceSaver.save(anim, "res://animations/raster_toolpath.tres")
-	var err2 := ResourceSaver.save(curve, "res://animations/raster_toolpath_curve.tres")
 	var err3 := ResourceSaver.save(line_mesh, "res://animations/raster_toolpath_lines.tres")
 	var status := "Baked %d pts, %.1fs — line-mesh preview" % [points.size(), anim.length]
-	if err1 != OK or err2 != OK or err3 != OK:
+	if err1 != OK or err3 != OK:
 		status += " (some saves failed)"
 	else:
 		status += " + animations/*.tres"

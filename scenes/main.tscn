@@ -2,10 +2,10 @@
 
 [ext_resource type="Script" path="res://scripts/load_obj_mesh.gd" id="2"]
 [ext_resource type="AnimationLibrary" path="res://animations/cnc_library.tres" id="3"]
-[ext_resource type="Curve3D" path="res://animations/raster_toolpath_curve.tres" id="4"]
 [ext_resource type="Script" path="res://scripts/raster_baker.gd" id="5"]
 [ext_resource type="Script" path="res://scripts/toolpath_ui.gd" id="6"]
 [ext_resource type="ArrayMesh" path="res://meshes/eartip.obj" id="7"]
+[ext_resource type="ArrayMesh" path="res://animations/raster_toolpath_lines.tres" id="8"]
 
 [sub_resource type="StandardMaterial3D" id="mat_part"]
 albedo_color = Color(0.72, 0.68, 0.58, 1)
@@ -65,11 +65,8 @@ mesh = ExtResource("7")
 material_override = SubResource("mat_part")
 script = ExtResource("2")
 
-[node name="Toolpath" type="Path3D" parent="."]
-visible = false
-curve = ExtResource("4")
-
 [node name="ToolpathPreview" type="MeshInstance3D" parent="."]
+mesh = ExtResource("8")
 material_override = SubResource("mat_path")
 
 [node name="Tool" type="MeshInstance3D" parent="."]
@@ -138,5 +135,5 @@ text = "Bake toolpath"
 
 [node name="Status" type="Label" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
-text = "Eartip ~72mm wide in metres (was wrongly 72m). Flat shaded + base plane."
+text = "Line-mesh preview on ToolpathPreview (no Path3D)."
 autowrap_mode = 3

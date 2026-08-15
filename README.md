@@ -3,9 +3,10 @@
 Simple **Godot 4.7+** project for 3-axis CNC **raster** toolpaths over a mesh.
 
 Bake writes editor-loadable assets:
-- `animations/raster_toolpath_lines.tres` — line-strip `ArrayMesh` (primary editor preview)
-- `animations/raster_toolpath.tres` — `Animation`
-- `animations/raster_toolpath_curve.tres` — `Curve3D` (kept as data; Path3D node hidden)
+- `animations/raster_toolpath_lines.tres` — line-strip `ArrayMesh` assigned to `ToolpathPreview` (editor-visible)
+- `animations/raster_toolpath.tres` — `Animation` for the Tool node
+
+No Path3D — preview is the line mesh.
 
 **Units:** Godot scene = **metres**. STL source is mm; mesh is imported ×0.001 (~72 mm wide). Bake UI spinboxes are in **mm**.
 
@@ -18,13 +19,12 @@ git pull
 ```
 
 1. Open this folder in **Godot 4.7+**
-2. Open `scenes/main.tscn` — flat-shaded eartip on a base plane
-3. Press Play → set tool radius / stepover / sample (mm) → **Bake**
-4. Stop Play — Path3D curve + AnimationPlayer library should remain as saved `.tres` assets
+2. Open `scenes/main.tscn` — flat-shaded eartip, base plane, **cyan line-mesh toolpath** already on ToolpathPreview
+3. Press Play → tweak tool radius / stepover / sample (mm) → **Bake** to refresh assets
 
 ## Notes
 
-Visual/algorithm sandbox — not production CAM. Not an EditorPlugin.
+Visual/algorithm sandbox — not production CAM.
 
 ## License
 
