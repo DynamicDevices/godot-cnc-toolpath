@@ -7,16 +7,16 @@ extends Node3D
 @export var animation_player_path: NodePath = NodePath("AnimationPlayer")
 @export var path3d_path: NodePath = NodePath("Toolpath")
 @export var ui_path: NodePath = NodePath("ToolpathUI")
-@export var safe_y: float = 1.4
-@export var feed_units_per_sec: float = 0.9
-@export var margin: float = 0.05
+@export var safe_y: float = 90.0
+@export var feed_units_per_sec: float = 40.0
+@export var margin: float = 1.0
 
 func _ready() -> void:
 	var ui := get_node_or_null(ui_path)
 	if ui and ui.has_signal("bake_requested"):
 		ui.bake_requested.connect(_on_bake_requested)
-	# Initial bake after mesh collision exists.
-	call_deferred("_on_bake_requested", 0.05, 0.12, 0.04)
+	# Initial bake after mesh collision exists (defaults in millimetres).
+	call_deferred("_on_bake_requested", 1.5, 2.0, 1.0)
 
 func _on_bake_requested(tool_radius: float, stepover: float, sample_step: float) -> void:
 	var mesh_inst := get_node(mesh_path) as MeshInstance3D
@@ -31,7 +31,7 @@ func _on_bake_requested(tool_radius: float, stepover: float, sample_step: float)
 	# Visual tool size.
 	if tool.mesh is SphereMesh:
 		var sm := tool.mesh as SphereMesh
-		sm.radius = maxf(tool_radius, 0.005)
+		sm.radius = maxf(tool_radius, 0.1)
 		sm.height = sm.radius * 2.0
 
 	await get_tree().physics_frame
