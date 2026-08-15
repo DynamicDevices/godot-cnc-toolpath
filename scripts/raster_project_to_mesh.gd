@@ -52,7 +52,7 @@ static func project_passes(
 		var verts := PackedVector3Array()
 		verts.append(Vector3(row[0].x, tool.safe_y, row[0].y))
 		for xz in row:
-			var y := _ball_drop_y(xz.x, xz.y, R, tris, tol.no_hit_y)
+			var y: float = _ball_drop_y(xz.x, xz.y, R, tris, tol.no_hit_y)
 			verts.append(Vector3(xz.x, y, xz.y))
 		verts.append(Vector3(row[row.size() - 1].x, tool.safe_y, row[row.size() - 1].y))
 
@@ -128,7 +128,7 @@ static func _world_triangles(mesh_inst: MeshInstance3D) -> Array:
 
 ## Drop a vertical ball of radius R at (x,z); return tool-centre Y (highest contact).
 static func _ball_drop_y(x: float, z: float, R: float, tris: Array, fallback_y: float) -> float:
-	var y_best := -1e30
+	var y_best: float = -1e30
 	var found := false
 	var R2 := R * R
 	for tri in tris:
@@ -172,13 +172,13 @@ static func _ball_edge_y(x: float, z: float, R: float, p0: Vector3, p1: Vector3)
 	# Closest point on infinite edge in XZ, then clamp to segment.
 	var t := ((x - p0.x) * ex + (z - p0.z) * ez) / len2
 	t = clampf(t, 0.0, 1.0)
-	var cx := p0.x + ex * t
-	var cy := p0.y + ey * t
-	var cz := p0.z + ez * t
-	var dx := x - cx
-	var dz := z - cz
-	var d2 := dx * dx + dz * dz
-	var R2 := R * R
+	var cx: float = p0.x + ex * t
+	var cy: float = p0.y + ey * t
+	var cz: float = p0.z + ez * t
+	var dx: float = x - cx
+	var dz: float = z - cz
+	var d2: float = dx * dx + dz * dz
+	var R2: float = R * R
 	if d2 > R2:
 		return NAN
 	return cy + sqrt(R2 - d2)
@@ -208,6 +208,6 @@ static func _ball_face_y(x: float, z: float, R: float, a: Vector3, b: Vector3, c
 	# n.x*(x-a.x) + n.y*(y-a.y) + n.z*(z-a.z) = ±R
 	var base := n.x * (x - a.x) + n.z * (z - a.z) - n.y * a.y
 	# n.y * y + base = ±R  →  y = (±R - base) / n.y
-	var y1 := (R - base) / n.y
-	var y2 := (-R - base) / n.y
+	var y1: float = (R - base) / n.y
+	var y2: float = (-R - base) / n.y
 	return maxf(y1, y2)
