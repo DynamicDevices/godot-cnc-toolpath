@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/load_obj_mesh.gd" id="2"]
 [ext_resource type="AnimationLibrary" path="res://animations/cnc_library.tres" id="3"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/toolpath_ui.gd" id="6"]
 [ext_resource type="ArrayMesh" path="res://meshes/eartip.obj" id="7"]
 [ext_resource type="ArrayMesh" path="res://animations/raster_toolpath_lines.tres" id="8"]
+[ext_resource type="ArrayMesh" path="res://animations/raster_passes_2d.tres" id="10"]
 [ext_resource type="Script" path="res://scripts/orbit_camera.gd" id="9"]
 
 [sub_resource type="StandardMaterial3D" id="mat_part"]
