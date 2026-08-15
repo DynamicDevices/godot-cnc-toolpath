@@ -1,24 +1,25 @@
 extends Node3D
 ## Raster toolpath baker: updates AnimationPlayer + Path3D from UI params.
-## tool_radius currently sizes the tool mesh and lifts the contact point by that amount.
+## UI values are millimetres; scene units are Godot metres (mm × 0.001).
+
+const MM := 0.001
 
 @export var mesh_path: NodePath = NodePath("MeshRoot/Part")
 @export var tool_path: NodePath = NodePath("Tool")
 @export var animation_player_path: NodePath = NodePath("AnimationPlayer")
 @export var path3d_path: NodePath = NodePath("Toolpath")
 @export var ui_path: NodePath = NodePath("ToolpathUI")
-@export var safe_y: float = 90.0
-@export var feed_units_per_sec: float = 40.0
-@export var margin: float = 1.0
+@export var safe_y_mm: float = 90.0
+@export var feed_mm_per_sec: float = 40.0
+@export var margin_mm: float = 1.0
 
 func _ready() -> void:
 	var ui := get_node_or_null(ui_path)
 	if ui and ui.has_signal("bake_requested"):
 		ui.bake_requested.connect(_on_bake_requested)
-	# Initial bake after mesh collision exists (defaults in millimetres).
 	call_deferred("_on_bake_requested", 1.5, 2.0, 1.0)
 
-func _on_bake_requested(tool_radius: float, stepover: float, sample_step: float) -> void:
+func _on_bake_requested(tool_radius_mm: float, stepover_mm: float, sample_step_mm: float) -> void:
 	var mesh_inst := get_node(mesh_path) as MeshInstance3D
 	var tool := get_node(tool_path) as MeshInstance3D
 	var anim_player := get_node(animation_player_path) as AnimationPlayer
@@ -28,10 +29,16 @@ func _on_bake_requested(tool_radius: float, stepover: float, sample_step: float)
 		push_error("Missing mesh/tool/AnimationPlayer/Path3D")
 		return
 
-	# Visual tool size.
+	var tool_radius := tool_radius_mm * MM
+	var stepover := stepover_mm * MM
+	var sample_step := sample_step_mm * MM
+	var safe_y := safe_y_mm * MM
+	var feed := feed_mm_per_sec * MM
+	var margin := margin_mm * MM
+
 	if tool.mesh is SphereMesh:
 		var sm := tool.mesh as SphereMesh
-		sm.radius = maxf(tool_radius, 0.1)
+		sm.radius = maxf(tool_radius, 0.0001)
 		sm.height = sm.radius * 2.0
 
 	await get_tree().physics_frame
@@ -69,11 +76,11 @@ func _on_bake_requested(tool_radius: float, stepover: float, sample_step: float)
 	var space := get_world_3d().direct_space_state
 	var row := 0
 	var z := min_z
-	var y_start := max_y + 2.0
-	while z <= max_z + 1e-6:
+	var y_start := max_y + 0.05
+	while z <= max_z + 1e-9:
 		var xs: Array[float] = []
 		var x := min_x
-		while x <= max_x + 1e-6:
+		while x <= max_x + 1e-9:
 			xs.append(x)
 			x += sample_step
 		if row % 2 == 1:
@@ -83,12 +90,11 @@ func _on_bake_requested(tool_radius: float, stepover: float, sample_step: float)
 		for sx in xs:
 			var q := PhysicsRayQueryParameters3D.create(
 				Vector3(sx, y_start, z),
-				Vector3(sx, -10.0, z)
+				Vector3(sx, -0.05, z)
 			)
 			var hit := space.intersect_ray(q)
 			if hit:
 				var p: Vector3 = hit.position
-				# Simple ball-nose compensation: lift by tool radius along +Y.
 				p.y += tool_radius
 				points.append(p)
 			else:
@@ -104,13 +110,11 @@ func _on_bake_requested(tool_radius: float, stepover: float, sample_step: float)
 			ui.set_status("No points — check mesh collision")
 		return
 
-	# Update Path3D curve (editor-visible after save; live in play mode).
 	var curve := Curve3D.new()
 	for p in points:
 		curve.add_point(p)
 	path3d.curve = curve
 
-	# Bake Animation.
 	var anim := Animation.new()
 	var track := anim.add_track(Animation.TYPE_POSITION_3D)
 	anim.track_set_path(track, NodePath("Tool"))
@@ -119,7 +123,7 @@ func _on_bake_requested(tool_radius: float, stepover: float, sample_step: float)
 	anim.track_insert_key(track, t, prev)
 	for i in range(1, points.size()):
 		var cur: Vector3 = points[i]
-		t += maxf(prev.distance_to(cur) / feed_units_per_sec, 0.01)
+		t += maxf(prev.distance_to(cur) / maxf(feed, 1e-6), 0.01)
 		anim.track_insert_key(track, t, cur)
 		prev = cur
 	anim.length = t
@@ -132,12 +136,10 @@ func _on_bake_requested(tool_radius: float, stepover: float, sample_step: float)
 	anim_player.add_animation_library("cnc", lib)
 	anim_player.play("cnc/raster_toolpath")
 
-	# Persist into res:// so the editor can reload them next open.
-	# (Works when running from the editor / writable project.)
 	DirAccess.make_dir_recursive_absolute("res://animations")
 	var err1 := ResourceSaver.save(anim, "res://animations/raster_toolpath.tres")
 	var err2 := ResourceSaver.save(curve, "res://animations/raster_toolpath_curve.tres")
-	var status := "Baked %d pts, %.1fs" % [points.size(), anim.length]
+	var status := "Baked %d pts, %.1fs (scene units=m, UI=mm)" % [points.size(), anim.length]
 	if err1 != OK or err2 != OK:
 		status += " (runtime only — save failed)"
 	else:
