@@ -2,6 +2,7 @@ extends Node3D
 ## Scene glue: UI Bake → RasterToolpathCalc → line mesh preview + Animation assets.
 
 const MM := 0.001
+const Calc = preload("res://scripts/raster_toolpath_calc.gd")
 
 @export var mesh_path: NodePath = NodePath("MeshRoot/Part")
 @export var tool_path: NodePath = NodePath("Tool")
@@ -44,7 +45,7 @@ func _on_bake_requested(tool_radius_mm: float, stepover_mm: float, sample_step_m
 	await get_tree().physics_frame
 
 	# 1) Separate calculation module — mesh + tool params → points.
-	var points: PackedVector3Array = RasterToolpathCalc.compute(
+	var points: PackedVector3Array = Calc.compute(
 		get_world_3d().direct_space_state,
 		mesh_inst,
 		tool_radius,
@@ -59,10 +60,10 @@ func _on_bake_requested(tool_radius_mm: float, stepover_mm: float, sample_step_m
 		return
 
 	# 2) Unpack: line mesh preview + Animation + save.
-	var line_mesh: ArrayMesh = RasterToolpathCalc.make_line_mesh(points)
+	var line_mesh: ArrayMesh = Calc.make_line_mesh(points)
 	preview.mesh = line_mesh
 
-	var anim: Animation = RasterToolpathCalc.make_position_animation(
+	var anim: Animation = Calc.make_position_animation(
 		points, NodePath("Tool"), feed
 	)
 	var lib := AnimationLibrary.new()
