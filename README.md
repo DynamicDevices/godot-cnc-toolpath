@@ -3,8 +3,9 @@
 Simple **Godot 4.7+** project for 3-axis CNC **raster** toolpaths over a mesh.
 
 Bake writes editor-loadable assets:
+- `animations/raster_toolpath_lines.tres` — line-strip `ArrayMesh` (primary editor preview)
 - `animations/raster_toolpath.tres` — `Animation`
-- `animations/raster_toolpath_curve.tres` — `Curve3D` on Path3D
+- `animations/raster_toolpath_curve.tres` — `Curve3D` (kept as data; Path3D node hidden)
 
 **Units:** Godot scene = **metres**. STL source is mm; mesh is imported ×0.001 (~72 mm wide). Bake UI spinboxes are in **mm**.
 

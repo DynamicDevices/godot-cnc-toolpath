@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/load_obj_mesh.gd" id="2"]
 [ext_resource type="AnimationLibrary" path="res://animations/cnc_library.tres" id="3"]
@@ -28,6 +28,13 @@ size = Vector2(0.2, 0.2)
 [sub_resource type="SphereMesh" id="sphere"]
 radius = 0.0015
 height = 0.003
+
+[sub_resource type="StandardMaterial3D" id="mat_path"]
+shading_mode = 0
+albedo_color = Color(0.15, 0.85, 1.0, 1)
+emission_enabled = true
+emission = Color(0.1, 0.6, 0.9, 1)
+emission_energy_multiplier = 2.0
 
 [node name="Main" type="Node3D"]
 script = ExtResource("5")
@@ -59,7 +66,11 @@ material_override = SubResource("mat_part")
 script = ExtResource("2")
 
 [node name="Toolpath" type="Path3D" parent="."]
+visible = false
 curve = ExtResource("4")
+
+[node name="ToolpathPreview" type="MeshInstance3D" parent="."]
+material_override = SubResource("mat_path")
 
 [node name="Tool" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.09, 0)
