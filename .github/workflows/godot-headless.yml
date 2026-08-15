@@ -28,7 +28,7 @@ jobs:
           if [[ ! -x "$BIN" ]]; then
             curl -fsSL -o "$GODOT_DIR/godot.zip" \
               "https://github.com/godotengine/godot/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip"
-            unzip -o "$GODOT_DIR/godot.zip" -d "$GODOT_DIR"
+            python3 -m zipfile -e "$GODOT_DIR/godot.zip" "$GODOT_DIR"
             chmod +x "$BIN"
           fi
           echo "bin=$BIN" >> "$GITHUB_OUTPUT"
