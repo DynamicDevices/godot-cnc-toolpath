@@ -1,6 +1,7 @@
 # godot-cnc-toolpath
 
-Simple **Godot 4.7+** project for 3-axis CNC **raster** toolpaths over a mesh.
+Simple **Godot 4.7+** project for 3-axis CNC **raster** and **waterline**
+(constant-Z) toolpaths over a mesh.
 
 ## Pipeline
 
@@ -9,10 +10,19 @@ Simple **Godot 4.7+** project for 3-axis CNC **raster** toolpaths over a mesh.
 3. **`toolpath_animation.gd`** — projected points → `Animation`
 4. **`raster_baker.gd`** — UI glue + save assets
 
+Waterline uses `waterline_toolpath.gd` to intersect the mesh with horizontal
+planes, join the segments into closed contours, apply planar tool-radius
+compensation, and sample each loop. Passes are ordered top-down and retract to
+safe height between contours. Godot's vertical axis is Y; the UI uses the
+conventional CNC name **Z stepdown**.
+
 Assets:
 - `animations/raster_passes_2d.tres` — yellow 2D passes (`Raster2DPreview`)
 - `animations/raster_toolpath_lines.tres` — cyan projected 3D path (`ToolpathPreview`)
 - `animations/raster_toolpath.tres` — Animation
+- `animations/waterline_contours.tres` — compensated constant-height contours
+- `animations/waterline_toolpath_lines.tres` — contours with safe retracts
+- `animations/waterline_toolpath.tres` — Animation
 
 **Units:** metres in-scene; Bake UI in mm. **Play:** MMB orbit, Shift+MMB pan, wheel zoom.
 
@@ -25,7 +35,13 @@ git pull
 ```
 
 1. Open in **Godot 4.7+** → `scenes/main.tscn`
-2. Press Play → Bake
+2. Press Play → choose Raster or Waterline → Bake
+
+Headless smoke proof for either strategy:
+
+```bash
+godot --headless --path . -s res://tools/bake_once.gd -- --strategy=waterline
+```
 
 ## License
 

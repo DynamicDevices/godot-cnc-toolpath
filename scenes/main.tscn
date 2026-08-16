@@ -99,7 +99,7 @@ script = ExtResource("6")
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 400.0
-offset_bottom = 300.0
+offset_bottom = 380.0
 
 [node name="VBox" type="VBoxContainer" parent="ToolpathUI/Panel"]
 layout_mode = 2
@@ -107,7 +107,14 @@ theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
-text = "Raster toolpath (UI=mm, scene=metres)"
+text = "CNC toolpath (UI=mm, scene=metres)"
+
+[node name="StrategyLabel" type="Label" parent="ToolpathUI/Panel/VBox"]
+layout_mode = 2
+text = "Strategy"
+
+[node name="Strategy" type="OptionButton" parent="ToolpathUI/Panel/VBox"]
+layout_mode = 2
 
 [node name="ToolRadiusLabel" type="Label" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
@@ -131,6 +138,17 @@ max_value = 20.0
 step = 0.1
 value = 2.0
 
+[node name="ZStepdownLabel" type="Label" parent="ToolpathUI/Panel/VBox"]
+layout_mode = 2
+text = "Z stepdown (mm)"
+
+[node name="ZStepdown" type="SpinBox" parent="ToolpathUI/Panel/VBox"]
+layout_mode = 2
+min_value = 0.2
+max_value = 20.0
+step = 0.1
+value = 2.0
+
 [node name="SampleLabel" type="Label" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
 text = "Sample step (mm)"
@@ -148,5 +166,5 @@ text = "Bake toolpath"
 
 [node name="Status" type="Label" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
-text = "Yellow=2D passes (per-line), cyan=projected 3D. MMB orbit / Shift+MMB pan."
+text = "Yellow=input/contours, cyan=tool path. MMB orbit / Shift+MMB pan."
 autowrap_mode = 3

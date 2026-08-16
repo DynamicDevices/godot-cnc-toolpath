@@ -34,22 +34,28 @@ jobs:
               set -euo pipefail
               godot --version
               godot --headless --path /src --import
-              OUT=$(mktemp)
-              set +e
-              godot --headless --path /src -s res://tools/bake_once.gd 2>&1 | tee "$OUT"
-              RC=${PIPESTATUS[0]}
-              set -e
-              if grep -E "Parse Error|Failed to load script|BAKE_FAIL" "$OUT"; then
-                echo "::error::Godot script/bake failure"
-                exit 1
-              fi
-              grep -q BAKE_OK "$OUT"
-              exit "$RC"
+              for STRATEGY in raster waterline; do
+                OUT=$(mktemp)
+                set +e
+                godot --headless --path /src -s res://tools/bake_once.gd \
+                  -- --strategy="$STRATEGY" 2>&1 | tee "$OUT"
+                RC=${PIPESTATUS[0]}
+                set -e
+                if grep -E "Parse Error|Failed to load script|BAKE_FAIL" "$OUT"; then
+                  echo "::error::Godot $STRATEGY script/bake failure"
+                  exit 1
+                fi
+                grep -q "BAKE_OK strategy=$STRATEGY" "$OUT"
+                if [ "$STRATEGY" = waterline ]; then
+                  grep -q "WATERLINE_PROOF" "$OUT"
+                fi
+                [ "$RC" -eq 0 ]
+              done
             '
 
       - name: Summarize
         if: always()
         run: |
           echo "### Godot CI" >> "$GITHUB_STEP_SUMMARY"
-          echo "Self-hosted Docker image \`ghcr.io/sharkyrawr/godot-docker:4.6\` — headless bake via \`tools/bake_once.gd\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Self-hosted Docker image \`ghcr.io/sharkyrawr/godot-docker:4.6\` — raster + waterline headless bakes via \`tools/bake_once.gd\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"

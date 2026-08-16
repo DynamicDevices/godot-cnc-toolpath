@@ -5,8 +5,8 @@ config_version=5
 
 [application]
 
-config/name="CNC Raster Toolpath Demo"
-config/description="Minimal 3-axis raster toolpath over a mesh, recorded as AnimationPlayer tracks."
+config/name="CNC Toolpath Demo"
+config/description="Minimal 3-axis raster and waterline toolpaths over a mesh, recorded as AnimationPlayer tracks."
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
 
