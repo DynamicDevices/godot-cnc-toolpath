@@ -137,13 +137,15 @@ func _bake_raster(
 	# Stage 3 — animation from projected points.
 	var anim: Animation = AnimMod.from_points(points, NodePath("Tool"), feed)
 	_install_animation(anim_player, "raster_toolpath", anim)
+	var curve := _curve_from_points(points)
 
 	DirAccess.make_dir_recursive_absolute("res://animations")
 	var e1 := ResourceSaver.save(mesh_2d, "res://animations/raster_passes_2d.tres")
 	var e2 := ResourceSaver.save(mesh_3d, "res://animations/raster_toolpath_lines.tres")
 	var e3 := ResourceSaver.save(anim, "res://animations/raster_toolpath.tres")
+	var e4 := ResourceSaver.save(curve, "res://animations/raster_toolpath_curve.tres")
 	var status := "2D(%d passes)→project→anim %d pts" % [mesh_2d.get_surface_count(), points.size()]
-	if e1 != OK or e2 != OK or e3 != OK:
+	if e1 != OK or e2 != OK or e3 != OK or e4 != OK:
 		status += " (save failed)"
 	else:
 		status += " — saved"
@@ -154,6 +156,8 @@ func _bake_raster(
 		"strategy": "raster",
 		"points": points.size(),
 		"passes": mesh_2d.get_surface_count(),
+		"curve_path": "res://animations/raster_toolpath_curve.tres",
+		"animation_path": "res://animations/raster_toolpath.tres",
 	}
 
 func _bake_waterline(
@@ -186,16 +190,18 @@ func _bake_waterline(
 	var anim: Animation = AnimMod.from_points(points, NodePath("Tool"), feed)
 	anim.resource_name = "waterline_toolpath"
 	_install_animation(anim_player, "waterline_toolpath", anim)
+	var curve := _curve_from_points(points)
 
 	DirAccess.make_dir_recursive_absolute("res://animations")
 	var e1 := ResourceSaver.save(contour_mesh, "res://animations/waterline_contours.tres")
 	var e2 := ResourceSaver.save(path_mesh, "res://animations/waterline_toolpath_lines.tres")
 	var e3 := ResourceSaver.save(anim, "res://animations/waterline_toolpath.tres")
+	var e4 := ResourceSaver.save(curve, "res://animations/waterline_toolpath_curve.tres")
 	var levels: Array = result["cut_levels"]
 	var status := "Waterline %d levels / %d contours / %d pts" % [
 		levels.size(), result["contour_count"], points.size()
 	]
-	if e1 != OK or e2 != OK or e3 != OK:
+	if e1 != OK or e2 != OK or e3 != OK or e4 != OK:
 		status += " (save failed)"
 	else:
 		status += " — saved"
@@ -203,7 +209,15 @@ func _bake_waterline(
 		ui.set_status(status)
 	print(status)
 	result["strategy"] = "waterline"
+	result["curve_path"] = "res://animations/waterline_toolpath_curve.tres"
+	result["animation_path"] = "res://animations/waterline_toolpath.tres"
 	return result
+
+func _curve_from_points(points: PackedVector3Array) -> Curve3D:
+	var curve := Curve3D.new()
+	for point in points:
+		curve.add_point(point)
+	return curve
 
 func _install_animation(anim_player: AnimationPlayer, name: String, anim: Animation) -> void:
 	var lib := AnimationLibrary.new()
