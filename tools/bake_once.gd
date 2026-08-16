@@ -28,6 +28,42 @@ func _run() -> void:
 		push_error("BAKE_FAIL empty stats for " + strategy)
 		quit(4)
 		return
+	var expected_curve_path := "res://animations/%s_toolpath_curve.tres" % strategy
+	var expected_animation_path := "res://animations/%s_toolpath.tres" % strategy
+	if (
+		stats.get("curve_path", "") != expected_curve_path
+		or stats.get("animation_path", "") != expected_animation_path
+		or not FileAccess.file_exists(expected_curve_path)
+		or not FileAccess.file_exists(expected_animation_path)
+	):
+		push_error("BAKE_FAIL unstable or missing resource paths: " + str(stats))
+		quit(7)
+		return
+	var curve := ResourceLoader.load(
+		expected_curve_path, "Curve3D", ResourceLoader.CACHE_MODE_IGNORE
+	) as Curve3D
+	var animation := ResourceLoader.load(
+		expected_animation_path, "Animation", ResourceLoader.CACHE_MODE_IGNORE
+	) as Animation
+	var path_placeholder := root.get_node_or_null("ToolpathCurve") as Path3D
+	var reload_hook := root.get_node_or_null("EditorAssetReload")
+	if (
+		curve == null
+		or curve.get_point_count() == 0
+		or animation == null
+		or path_placeholder == null
+		or path_placeholder.curve == null
+		or reload_hook == null
+	):
+		push_error("BAKE_FAIL Curve3D/Animation editor placeholder wiring")
+		quit(8)
+		return
+	print(
+		"ASSET_PROOF strategy=", strategy,
+		" curve=", expected_curve_path,
+		" curve_points=", curve.get_point_count(),
+		" animation=", expected_animation_path
+	)
 	var preview := root.get_node_or_null("ToolpathPreview") as MeshInstance3D
 	if preview == null or preview.mesh == null:
 		push_error("BAKE_FAIL no preview mesh")

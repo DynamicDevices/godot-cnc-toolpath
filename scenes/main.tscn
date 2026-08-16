@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/load_obj_mesh.gd" id="2"]
 [ext_resource type="AnimationLibrary" path="res://animations/cnc_library.tres" id="3"]
@@ -8,6 +8,8 @@
 [ext_resource type="ArrayMesh" path="res://animations/raster_toolpath_lines.tres" id="8"]
 [ext_resource type="ArrayMesh" path="res://animations/raster_passes_2d.tres" id="10"]
 [ext_resource type="Script" path="res://scripts/orbit_camera.gd" id="9"]
+[ext_resource type="Curve3D" path="res://animations/raster_toolpath_curve.tres" id="11"]
+[ext_resource type="Script" path="res://scripts/editor_toolpath_reload.gd" id="12"]
 
 [sub_resource type="StandardMaterial3D" id="mat_part"]
 albedo_color = Color(0.72, 0.68, 0.58, 1)
@@ -82,6 +84,9 @@ material_override = SubResource("mat_2d")
 mesh = ExtResource("8")
 material_override = SubResource("mat_path")
 
+[node name="ToolpathCurve" type="Path3D" parent="."]
+curve = ExtResource("11")
+
 [node name="Tool" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.09, 0)
 mesh = SubResource("sphere")
@@ -91,6 +96,9 @@ material_override = SubResource("mat_tool")
 libraries = {
 "cnc": ExtResource("3")
 }
+
+[node name="EditorAssetReload" type="Node" parent="."]
+script = ExtResource("12")
 
 [node name="ToolpathUI" type="CanvasLayer" parent="."]
 script = ExtResource("6")

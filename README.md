@@ -19,10 +19,20 @@ conventional CNC name **Z stepdown**.
 Assets:
 - `animations/raster_passes_2d.tres` — yellow 2D passes (`Raster2DPreview`)
 - `animations/raster_toolpath_lines.tres` — cyan projected 3D path (`ToolpathPreview`)
+- `animations/raster_toolpath_curve.tres` — editor `Path3D` preview
 - `animations/raster_toolpath.tres` — Animation
 - `animations/waterline_contours.tres` — compensated constant-height contours
 - `animations/waterline_toolpath_lines.tres` — contours with safe retracts
+- `animations/waterline_toolpath_curve.tres` — editor `Path3D` preview
 - `animations/waterline_toolpath.tres` — Animation
+
+All generated resources use stable `res://animations/...` paths and are
+overwritten on each bake. In the editor, `ToolpathCurve` is the placeholder
+`Path3D`, and `AnimationPlayer` is the animation placeholder. Select
+`EditorAssetReload` and set **Preview Strategy** to `raster` or `waterline`;
+its `@tool` script detects rewritten Curve3D/Animation files and reloads those
+two placeholders automatically. Select `ToolpathCurve` to see the Path3D
+editor gizmo. No game rerun or scene reopen is required.
 
 **Units:** metres in-scene; Bake UI in mm. **Play:** MMB orbit, Shift+MMB pan, wheel zoom.
 
@@ -42,6 +52,9 @@ Headless smoke proof for either strategy:
 ```bash
 godot --headless --path . -s res://tools/bake_once.gd -- --strategy=waterline
 ```
+
+The smoke bake also asserts the stable Curve3D/Animation paths and placeholder
+wiring, and prints an `ASSET_PROOF` line.
 
 ## License
 
