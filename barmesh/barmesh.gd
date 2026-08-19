@@ -54,6 +54,56 @@ class BMBar:
 		nodefore = p_fore
 		barvecN = (p_fore.p - p_back.p).normalized()
 
+	func set_fore_right_bl(bforeright: bool, bar: BMBar) -> void:
+		if bforeright:
+			barforeright = bar
+		else:
+			barbackleft = bar
+
+	func get_fore_right_bl(bforeright: bool) -> BMBar:
+		return barforeright if bforeright else barbackleft
+
+	func get_node_fore(bfore: bool) -> BMNode:
+		return nodefore if bfore else nodeback
+
+	func get_bar_fore_left() -> BMBar:
+		if bbardeleted or barbackleft == null:
+			return null
+		var barleft: BMBar = barbackleft
+		var barleftnodeback: BMNode = nodeback
+		var guard := 0
+		while true:
+			var bfore := barleft.nodeback == barleftnodeback
+			barleftnodeback = barleft.get_node_fore(bfore)
+			if barleftnodeback == nodefore:
+				break
+			barleft = barleft.get_fore_right_bl(bfore)
+			if barleft == null or barleft.bbardeleted:
+				return null
+			guard += 1
+			if guard > 1000:
+				return null
+		return barleft
+
+	func get_bar_back_right() -> BMBar:
+		if bbardeleted or barforeright == null:
+			return null
+		var barright: BMBar = barforeright
+		var barrightnodeback: BMNode = nodefore
+		var guard := 0
+		while true:
+			var bfore := barright.nodeback == barrightnodeback
+			barrightnodeback = barright.get_node_fore(bfore)
+			if barrightnodeback == nodeback:
+				break
+			barright = barright.get_fore_right_bl(bfore)
+			if barright == null or barright.bbardeleted:
+				return null
+			guard += 1
+			if guard > 1000:
+				return null
+		return barright
+
 
 var nodes: Array = []
 var bars: Array = []
@@ -147,3 +197,51 @@ func live_bars() -> Array:
 		if not b.bbardeleted:
 			out.append(b)
 	return out
+
+
+class SubdivParams:
+	## External refine knobs (Julian). Defaults: 0.01 mm, 1 mm, 15°.
+	var epsilon_m: float = 0.00001
+	var stepover_m: float = 0.001
+	var angle_deg: float = 15.0
+
+
+func bar_needs_split(bar: BMBar, params: SubdivParams) -> bool:
+	if bar.bbardeleted:
+		return false
+	var a: Vector3 = bar.nodeback.p
+	var b: Vector3 = bar.nodefore.p
+	var dxy := Vector2(a.x - b.x, a.y - b.y).length()
+	if dxy <= params.epsilon_m:
+		return false
+	var need_len := a.distance_to(b) > params.stepover_m
+	var need_ang := false
+	var na: Vector3 = bar.nodeback.contact_normal
+	var nb: Vector3 = bar.nodefore.contact_normal
+	if na.length_squared() > 0.25 and nb.length_squared() > 0.25:
+		var c := clampf(na.dot(nb), -1.0, 1.0)
+		need_ang = c < cos(deg_to_rad(params.angle_deg))
+	return need_len or need_ang
+
+
+func insert_node_into_bar_f(bar: BMBar, newnode: BMNode) -> BMNode:
+	assert(newnode.p != bar.nodeback.p and newnode.p != bar.nodefore.p)
+	assert(newnode in nodes)
+	var barforeleft := bar.get_bar_fore_left()
+	var barbackright := bar.get_bar_back_right()
+	var barback := BMBar.new(bar.nodeback, newnode)
+	var barfore := BMBar.new(bar.nodefore, newnode)
+	if barbackright != null:
+		barback.barforeright = barfore
+		barfore.barbackleft = bar.barforeright
+		barbackright.set_fore_right_bl(barbackright.nodefore == bar.nodeback, barback)
+	if barforeleft != null:
+		barback.barbackleft = bar.barbackleft
+		barfore.barforeright = barback
+		barforeleft.set_fore_right_bl(barforeleft.nodefore == bar.nodefore, barfore)
+	bars.append(barback)
+	bars.append(barfore)
+	bar.barforeright = barfore
+	bar.barbackleft = barback
+	bar.bbardeleted = true
+	return newnode

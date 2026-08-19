@@ -9,6 +9,10 @@ const Contact = preload("res://barmesh/tool_contact.gd")
 @export var row_delay_s: float = 0.06
 @export var pad_m: float = 0.003
 @export var tool_radius_m: float = 0.0015
+@export var epsilon_mm: float = 0.01
+@export var stepover_mm: float = 1.0
+@export var angle_deg: float = 15.0
+@export var max_refine_passes: int = 12
 
 var _playing: bool = false
 var _run_id: int = 0
@@ -60,6 +64,7 @@ func play_over_part(p_radius: float = -1.0) -> void:
 		_draw_barmesh(bm)
 		if row_delay_s > 0.0:
 			await get_tree().create_timer(row_delay_s).timeout
+	await _refine_barmesh(bm, R, tris, z_plane, z_above, my_run)
 	if my_run == _run_id:
 		_playing = false
 
@@ -71,12 +76,47 @@ func _drop_last_row(bm: BarMesh, R: float, tris: Array, z_plane: float) -> void:
 	var start: int = bm.nodes.size() - n
 	for i in range(n):
 		var node: BarMesh.BMNode = bm.nodes[start + i]
-		var hit: Dictionary = Contact.drop_tool_contact(node.p.x, node.p.y, R, tris, z_plane)
-		node.p.z = float(hit["z"])
-		node.contact_kind = int(hit["kind"])
-		node.contact_tri = int(hit["tri"])
-		node.contact_elem = int(hit["elem"])
-		node.contact_normal = hit["normal"]
+		_apply_contact(node, R, tris, z_plane)
+
+
+func _apply_contact(node: BarMesh.BMNode, R: float, tris: Array, z_plane: float) -> void:
+	var hit: Dictionary = Contact.drop_tool_contact(node.p.x, node.p.y, R, tris, z_plane)
+	node.p.z = float(hit["z"])
+	node.contact_kind = int(hit["kind"])
+	node.contact_tri = int(hit["tri"])
+	node.contact_elem = int(hit["elem"])
+	node.contact_normal = hit["normal"]
+
+
+func _refine_barmesh(bm: BarMesh, R: float, tris: Array, z_plane: float, z_above: float, my_run: int) -> void:
+	var params := BarMeshGD.SubdivParams.new()
+	params.epsilon_m = epsilon_mm * 0.001
+	params.stepover_m = stepover_mm * 0.001
+	params.angle_deg = angle_deg
+	for _pass in range(max_refine_passes):
+		if my_run != _run_id:
+			return
+		var batch: Array = []
+		for bar in bm.live_bars():
+			if bm.bar_needs_split(bar, params):
+				batch.append(bar)
+		if batch.is_empty() or bm.nodes.size() > 8000:
+			break
+		for bar in batch:
+			var b: BarMesh.BMBar = bar
+			if b.bbardeleted:
+				continue
+			var mid := Vector3(
+				0.5 * (b.nodeback.p.x + b.nodefore.p.x),
+				0.5 * (b.nodeback.p.y + b.nodefore.p.y),
+				z_above
+			)
+			var node: BarMesh.BMNode = bm.new_node(mid)
+			_apply_contact(node, R, tris, z_plane)
+			bm.insert_node_into_bar_f(b, node)
+		_draw_barmesh(bm)
+		if row_delay_s > 0.0:
+			await get_tree().create_timer(row_delay_s).timeout
 
 
 func _draw_barmesh(bm: BarMesh) -> void:

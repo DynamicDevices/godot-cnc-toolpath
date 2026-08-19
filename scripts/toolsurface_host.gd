@@ -14,20 +14,26 @@ func _ready() -> void:
 	if ui and ui.has_signal("bake_requested"):
 		ui.bake_requested.connect(_on_bake_requested)
 	if DisplayServer.get_name() != "headless":
-		call_deferred("_on_bake_requested", "barmesh", 1.5, 2.0, 1.0, 2.0)
+		call_deferred("_on_bake_requested", "barmesh", 1.5, 1.0, 0.01, 15.0)
 
 
 func _on_bake_requested(
 	_strategy: String,
 	tool_radius_mm: float,
-	_stepover_mm: float,
-	_sample_step_mm: float,
-	_z_stepdown_mm: float
+	stepover_mm: float,
+	epsilon_mm: float,
+	angle_deg: float
 ) -> void:
-	await bake_strategy("barmesh", tool_radius_mm)
+	await bake_strategy("barmesh", tool_radius_mm, stepover_mm, epsilon_mm, angle_deg)
 
 
-func bake_strategy(strategy: String, tool_radius_mm: float = 1.5, _a = 2.0, _b = 1.0, _c = 2.0) -> Dictionary:
+func bake_strategy(
+	strategy: String,
+	tool_radius_mm: float = 1.5,
+	stepover_mm: float = 1.0,
+	epsilon_mm: float = 0.01,
+	angle_deg: float = 15.0
+) -> Dictionary:
 	if strategy != "barmesh":
 		push_error("Toolpaths archived; only barmesh/toolsurface is active: " + strategy)
 		return {}
@@ -49,6 +55,10 @@ func bake_strategy(strategy: String, tool_radius_mm: float = 1.5, _a = 2.0, _b =
 		ui.set_status("BarMesh: Z-up contact lattice…")
 	if viz.get("tool_radius_m") != null:
 		viz.tool_radius_m = tool_radius
+	if viz.get("stepover_mm") != null:
+		viz.stepover_mm = stepover_mm
+		viz.epsilon_mm = epsilon_mm
+		viz.angle_deg = angle_deg
 	await viz.play_over_part(tool_radius)
 	if ui:
 		ui.set_status("BarMesh tool-contact lattice (CAD Z-up).")
