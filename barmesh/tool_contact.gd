@@ -81,7 +81,7 @@ static func drop_tool_contact(x: float, y: float, radius: float, tris_cad: Array
 			var d2: float = dx * dx + dy * dy
 			if d2 <= R2:
 				var z: float = v.z + sqrt(R2 - d2)
-				if z > z_best:
+				if _beats(z, 1, z_best, kind, found):
 					z_best = z
 					found = true
 					kind = 1
@@ -92,7 +92,7 @@ static func drop_tool_contact(x: float, y: float, radius: float, tris_cad: Array
 		for ei in 3:
 			var edge: Array = edges[ei]
 			var hit: Dictionary = _ball_edge_hit(x, y, radius, edge[0], edge[1])
-			if not hit.is_empty() and float(hit["z"]) > z_best:
+			if not hit.is_empty() and _beats(float(hit["z"]), 2, z_best, kind, found):
 				z_best = float(hit["z"])
 				found = true
 				kind = 2
@@ -100,7 +100,7 @@ static func drop_tool_contact(x: float, y: float, radius: float, tris_cad: Array
 				elem = ei
 				hit_pt = hit["point"]
 		var face: Dictionary = _ball_face_hit(x, y, radius, a, b, c)
-		if not face.is_empty() and float(face["z"]) > z_best:
+		if not face.is_empty() and _beats(float(face["z"]), 3, z_best, kind, found):
 			z_best = float(face["z"])
 			found = true
 			kind = 3
@@ -134,6 +134,17 @@ static func drop_tool_contact(x: float, y: float, radius: float, tris_cad: Array
 		"normal": n,
 		"point": hit_pt,
 	}
+
+
+static func _beats(z: float, kind: int, z_best: float, kind_best: int, found: bool) -> bool:
+	## Higher CL wins. Same height: vertex more specific than edge than face.
+	if not found:
+		return true
+	if z > z_best + 1e-9:
+		return true
+	if z < z_best - 1e-9:
+		return false
+	return kind < kind_best
 
 
 static func _ball_edge_z(x: float, y: float, R: float, p0: Vector3, p1: Vector3) -> float:
