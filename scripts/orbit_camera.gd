@@ -1,4 +1,4 @@
-extends Node3D
+extends Camera3D
 ## Editor-like viewport controls while running:
 ## Middle-mouse drag = orbit, Shift+middle-mouse drag = pan, wheel = zoom.
 
