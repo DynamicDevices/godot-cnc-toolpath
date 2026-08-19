@@ -22,9 +22,18 @@ class Partition1:
 
 class BMNode:
 	## Tool pose in contact: cutter location in CAD XYZ (Z up).
+	enum ContactFeature { NONE, VERTEX, EDGE, FACE }
+
 	var p: Vector3
 	var i: int
 	var pointzone = null
+	## Unit normal at the mesh contact, CAD Z-up, pointing from part toward the tool.
+	var contact_normal: Vector3 = Vector3.ZERO
+	var contact_kind: int = ContactFeature.NONE
+	## Index into the CAD triangle list used for the drop.
+	var contact_tri: int = -1
+	## Vertex 0–2, edge 0–2 (a-b, b-c, c-a), unused for FACE.
+	var contact_elem: int = -1
 
 	func _init(p_p: Vector3, p_i: int) -> void:
 		p = p_p

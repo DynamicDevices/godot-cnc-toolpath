@@ -56,16 +56,26 @@ static func mesh_triangles_cad(mesh_inst: MeshInstance3D) -> Array:
 
 
 static func drop_tool_z(x: float, y: float, radius: float, tris_cad: Array, fallback_z: float) -> float:
-	## Cutter-location Z (sphere centre) for a vertical ball-nose at CAD (x, y).
+	return float(drop_tool_contact(x, y, radius, tris_cad, fallback_z)["z"])
+
+
+static func drop_tool_contact(x: float, y: float, radius: float, tris_cad: Array, fallback_z: float) -> Dictionary:
+	## Highest ball-nose CL at CAD (x, y), plus contact feature and normal (Z-up).
 	var z_best: float = -1e30
 	var found := false
+	var kind := 0
+	var tri_i := -1
+	var elem := -1
+	var hit_pt := Vector3(x, y, fallback_z)
 	var R2 := radius * radius
-	for tri in tris_cad:
+	for ti in range(tris_cad.size()):
+		var tri: Array = tris_cad[ti]
 		var a: Vector3 = tri[0]
 		var b: Vector3 = tri[1]
 		var c: Vector3 = tri[2]
+		var verts: Array = [a, b, c]
 		for vi in 3:
-			var v: Vector3 = tri[vi]
+			var v: Vector3 = verts[vi]
 			var dx: float = x - v.x
 			var dy: float = y - v.y
 			var d2: float = dx * dx + dy * dy
@@ -74,40 +84,81 @@ static func drop_tool_z(x: float, y: float, radius: float, tris_cad: Array, fall
 				if z > z_best:
 					z_best = z
 					found = true
+					kind = 1
+					tri_i = ti
+					elem = vi
+					hit_pt = v
 		var edges: Array = [[a, b], [b, c], [c, a]]
-		for edge in edges:
-			var z_e: float = _ball_edge_z(x, y, radius, edge[0], edge[1])
-			if not is_nan(z_e) and z_e > z_best:
-				z_best = z_e
+		for ei in 3:
+			var edge: Array = edges[ei]
+			var hit: Dictionary = _ball_edge_hit(x, y, radius, edge[0], edge[1])
+			if not hit.is_empty() and float(hit["z"]) > z_best:
+				z_best = float(hit["z"])
 				found = true
+				kind = 2
+				tri_i = ti
+				elem = ei
+				hit_pt = hit["point"]
 		var z_f: float = _ball_face_z(x, y, radius, a, b, c)
 		if not is_nan(z_f) and z_f > z_best:
 			z_best = z_f
 			found = true
-	if found:
-		return z_best
-	return fallback_z
+			kind = 3
+			tri_i = ti
+			elem = -1
+			hit_pt = Vector3(x, y, z_f - radius)
+	if not found:
+		return {
+			"z": fallback_z,
+			"kind": 0,
+			"tri": -1,
+			"elem": -1,
+			"normal": Vector3(0, 0, 1),
+			"point": Vector3(x, y, fallback_z),
+		}
+	var cl := Vector3(x, y, z_best)
+	var n := (cl - hit_pt).normalized()
+	if kind == 3:
+		var tri_n: Array = tris_cad[tri_i]
+		n = (tri_n[1] - tri_n[0]).cross(tri_n[2] - tri_n[0]).normalized()
+		if n.dot(cl - tri_n[0]) < 0.0:
+			n = -n
+	elif n.length_squared() < 1e-12:
+		n = Vector3(0, 0, 1)
+	return {
+		"z": z_best,
+		"kind": kind,
+		"tri": tri_i,
+		"elem": elem,
+		"normal": n,
+		"point": hit_pt,
+	}
 
 
 static func _ball_edge_z(x: float, y: float, R: float, p0: Vector3, p1: Vector3) -> float:
+	var hit := _ball_edge_hit(x, y, R, p0, p1)
+	if hit.is_empty():
+		return NAN
+	return float(hit["z"])
+
+
+static func _ball_edge_hit(x: float, y: float, R: float, p0: Vector3, p1: Vector3) -> Dictionary:
 	var ex := p1.x - p0.x
 	var ey := p1.y - p0.y
 	var ez := p1.z - p0.z
 	var len2 := ex * ex + ey * ey
 	if len2 < 1e-18:
-		return NAN
+		return {}
 	var t := ((x - p0.x) * ex + (y - p0.y) * ey) / len2
 	t = clampf(t, 0.0, 1.0)
-	var cx: float = p0.x + ex * t
-	var cy: float = p0.y + ey * t
-	var cz: float = p0.z + ez * t
-	var dx: float = x - cx
-	var dy: float = y - cy
+	var pt := Vector3(p0.x + ex * t, p0.y + ey * t, p0.z + ez * t)
+	var dx: float = x - pt.x
+	var dy: float = y - pt.y
 	var d2: float = dx * dx + dy * dy
 	var R2: float = R * R
 	if d2 > R2:
-		return NAN
-	return cz + sqrt(R2 - d2)
+		return {}
+	return {"z": pt.z + sqrt(R2 - d2), "point": pt}
 
 
 static func _ball_face_z(x: float, y: float, R: float, a: Vector3, b: Vector3, c: Vector3) -> float:
