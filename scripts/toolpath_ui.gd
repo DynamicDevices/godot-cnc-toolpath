@@ -67,8 +67,8 @@ func _ready() -> void:
 		ortho.button_pressed = true
 		ortho.toggled.connect(func(v: bool) -> void:
 			var cam := get_parent().get_node_or_null("Camera3D")
-			if cam and cam.has_method("set_orthogonal"):
-				cam.set_orthogonal(v)
+			if cam and cam.has_method("apply_orthogonal"):
+				cam.apply_orthogonal(v)
 		)
 
 

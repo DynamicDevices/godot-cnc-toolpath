@@ -79,7 +79,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_apply()
 			get_viewport().set_input_as_handled()
 
-func set_orthogonal(v: bool) -> void:
+func apply_orthogonal(v: bool) -> void:
 	orthogonal = v
 	_apply()
 
