@@ -1,15 +1,10 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/load_obj_mesh.gd" id="2"]
-[ext_resource type="AnimationLibrary" path="res://animations/cnc_library.tres" id="3"]
-[ext_resource type="Script" path="res://scripts/raster_baker.gd" id="5"]
+[ext_resource type="Script" path="res://scripts/toolsurface_host.gd" id="5"]
 [ext_resource type="Script" path="res://scripts/toolpath_ui.gd" id="6"]
 [ext_resource type="ArrayMesh" path="res://meshes/eartip.obj" id="7"]
-[ext_resource type="ArrayMesh" path="res://animations/raster_toolpath_lines.tres" id="8"]
-[ext_resource type="ArrayMesh" path="res://animations/raster_passes_2d.tres" id="10"]
 [ext_resource type="Script" path="res://scripts/orbit_camera.gd" id="9"]
-[ext_resource type="Curve3D" path="res://animations/raster_toolpath_curve.tres" id="11"]
-[ext_resource type="Script" path="res://scripts/editor_toolpath_reload.gd" id="12"]
 [ext_resource type="Script" path="res://barmesh/draw.gd" id="13"]
 
 [sub_resource type="StandardMaterial3D" id="mat_part"]
@@ -34,25 +29,8 @@ size = Vector2(0.2, 0.2)
 radius = 0.0015
 height = 0.003
 
-[sub_resource type="StandardMaterial3D" id="mat_path"]
-shading_mode = 0
-albedo_color = Color(0.15, 0.85, 1.0, 1)
-emission_enabled = true
-emission = Color(0.1, 0.6, 0.9, 1)
-emission_energy_multiplier = 2.0
-
-[sub_resource type="StandardMaterial3D" id="mat_2d"]
-shading_mode = 0
-albedo_color = Color(1.0, 0.85, 0.15, 1)
-emission_enabled = true
-emission = Color(0.9, 0.7, 0.05, 1)
-emission_energy_multiplier = 2.0
-
 [node name="Main" type="Node3D"]
 script = ExtResource("5")
-safe_y_mm = 90.0
-feed_mm_per_sec = 40.0
-margin_mm = 1.0
 
 [node name="Camera3D" type="Camera3D" parent="."]
 current = true
@@ -78,31 +56,13 @@ mesh = ExtResource("7")
 material_override = SubResource("mat_part")
 script = ExtResource("2")
 
-[node name="Raster2DPreview" type="MeshInstance3D" parent="."]
-material_override = SubResource("mat_2d")
-
-[node name="ToolpathPreview" type="MeshInstance3D" parent="."]
-mesh = ExtResource("8")
-material_override = SubResource("mat_path")
-
 [node name="BarMeshPreview" type="MeshInstance3D" parent="."]
 script = ExtResource("13")
-
-[node name="ToolpathCurve" type="Path3D" parent="."]
-curve = ExtResource("11")
 
 [node name="Tool" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.09, 0)
 mesh = SubResource("sphere")
 material_override = SubResource("mat_tool")
-
-[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
-libraries = {
-"cnc": ExtResource("3")
-}
-
-[node name="EditorAssetReload" type="Node" parent="."]
-script = ExtResource("12")
 
 [node name="ToolpathUI" type="CanvasLayer" parent="."]
 script = ExtResource("6")
@@ -111,7 +71,7 @@ script = ExtResource("6")
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 400.0
-offset_bottom = 380.0
+offset_bottom = 280.0
 
 [node name="VBox" type="VBoxContainer" parent="ToolpathUI/Panel"]
 layout_mode = 2
@@ -119,7 +79,7 @@ theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
-text = "CNC toolpath (UI=mm, scene=metres)"
+text = "Tool surface (CAD Z-up)"
 
 [node name="StrategyLabel" type="Label" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
@@ -174,9 +134,9 @@ value = 1.0
 
 [node name="Bake" type="Button" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
-text = "Bake toolpath"
+text = "Build tool surface"
 
 [node name="Status" type="Label" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
-text = "Yellow=input/contours, cyan=tool path. MMB orbit / Shift+MMB pan."
+text = "BarMesh only. MMB orbit / Shift+MMB pan."
 autowrap_mode = 3

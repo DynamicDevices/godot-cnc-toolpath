@@ -1,8 +1,0 @@
-[gd_resource type="AnimationLibrary" format=3]
-
-[ext_resource type="Animation" path="res://animations/raster_toolpath.tres" id="1"]
-
-[resource]
-_data = {
-"raster_toolpath": ExtResource("1")
-}

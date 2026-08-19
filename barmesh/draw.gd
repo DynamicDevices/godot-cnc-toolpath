@@ -27,6 +27,8 @@ func _ready() -> void:
 	mat.emission = Color(0.7, 0.1, 0.5)
 	mat.emission_energy_multiplier = 1.8
 	material_override = mat
+	if DisplayServer.get_name() == "headless":
+		row_delay_s = 0.0
 	call_deferred("play_over_part")
 
 
