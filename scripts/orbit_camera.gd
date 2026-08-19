@@ -1,4 +1,4 @@
-extends Node3D
+extends Camera3D
 ## Editor-like viewport controls while running:
 ## Middle-mouse drag = orbit, Shift+middle-mouse drag = pan, wheel = zoom.
 
@@ -8,6 +8,7 @@ extends Node3D
 @export var zoom_sensitivity: float = 0.02
 @export var min_distance: float = 0.05
 @export var max_distance: float = 1.5
+@export var orthogonal: bool = true
 
 var _yaw: float = 0.6
 var _pitch: float = 0.45
@@ -78,7 +79,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			_apply()
 			get_viewport().set_input_as_handled()
 
+func apply_orthogonal(v: bool) -> void:
+	orthogonal = v
+	_apply()
+
+
 func _apply() -> void:
+	if orthogonal:
+		projection = PROJECTION_ORTHOGONAL
+		size = clampf(_distance, 0.02, 2.0)
+	else:
+		projection = PROJECTION_PERSPECTIVE
 	var offset := Vector3(
 		_distance * cos(_pitch) * sin(_yaw),
 		_distance * sin(_pitch),
