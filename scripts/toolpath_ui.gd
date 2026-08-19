@@ -23,6 +23,8 @@ func _ready() -> void:
 	strategy.set_item_metadata(0, "raster")
 	strategy.add_item("Waterline (constant Z)")
 	strategy.set_item_metadata(1, "waterline")
+	strategy.add_item("BarMesh viz")
+	strategy.set_item_metadata(2, "barmesh")
 	strategy.item_selected.connect(_on_strategy_selected)
 	$Panel/VBox/Bake.pressed.connect(_on_bake)
 	_on_strategy_selected(strategy.selected)
@@ -39,9 +41,11 @@ func _on_bake() -> void:
 	)
 
 func _on_strategy_selected(index: int) -> void:
-	var is_waterline: bool = str(strategy.get_item_metadata(index)) == "waterline"
-	stepover_label.visible = not is_waterline
-	stepover.visible = not is_waterline
+	var id: String = str(strategy.get_item_metadata(index))
+	var is_waterline: bool = id == "waterline"
+	var is_barmesh: bool = id == "barmesh"
+	stepover_label.visible = not is_waterline and not is_barmesh
+	stepover.visible = not is_waterline and not is_barmesh
 	z_stepdown_label.visible = is_waterline
 	z_stepdown.visible = is_waterline
 
