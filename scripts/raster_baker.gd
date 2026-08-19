@@ -13,6 +13,7 @@ const AnimMod = preload("res://scripts/toolpath_animation.gd")
 @export var preview_2d_path: NodePath = NodePath("Raster2DPreview")
 @export var preview_3d_path: NodePath = NodePath("ToolpathPreview")
 @export var ui_path: NodePath = NodePath("ToolpathUI")
+@export var barmesh_preview_path: NodePath = NodePath("BarMeshPreview")
 @export var safe_y_mm: float = 90.0
 @export var plane_y_mm: float = 0.0
 @export var feed_mm_per_sec: float = 40.0
@@ -78,6 +79,18 @@ func bake_strategy(
 
 	await get_tree().physics_frame
 	await get_tree().physics_frame
+
+	if strategy == "barmesh":
+		var viz := get_node_or_null(barmesh_preview_path)
+		if viz and viz.has_method("play_over_part"):
+			if ui:
+				ui.set_status("BarMesh: Z-up contact lattice…")
+			if viz.get("tool_radius_m") != null:
+				viz.tool_radius_m = tool_radius
+			await viz.play_over_part(tool_radius)
+			if ui:
+				ui.set_status("BarMesh tool-contact lattice (CAD Z-up, ImmediateMesh).")
+		return {}
 
 	if strategy == "waterline":
 		last_bake_stats = _bake_waterline(

@@ -34,6 +34,8 @@ its `@tool` script detects rewritten Curve3D/Animation files and reloads those
 two placeholders automatically. Select `ToolpathCurve` to see the Path3D
 editor gizmo. No game rerun or scene reopen is required.
 
+**BarMesh** (`barmesh/`): CAD **Z-up** `Node`/`Bar`/`BuildRectBarMesh`, ball-nose drop along −Z (`tool_contact.gd`). ImmediateMesh in `draw.gd` is the only Y-up conversion. Strategy **BarMesh viz**.
+
 **Units:** metres in-scene; Bake UI in mm. **Play:** MMB orbit, Shift+MMB pan, wheel zoom.
 
 ## Quick start
