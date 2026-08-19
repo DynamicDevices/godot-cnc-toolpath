@@ -71,7 +71,12 @@ func _drop_last_row(bm: BarMesh, R: float, tris: Array, z_plane: float) -> void:
 	var start: int = bm.nodes.size() - n
 	for i in range(n):
 		var node: BarMesh.BMNode = bm.nodes[start + i]
-		node.p.z = Contact.drop_tool_z(node.p.x, node.p.y, R, tris, z_plane)
+		var hit: Dictionary = Contact.drop_tool_contact(node.p.x, node.p.y, R, tris, z_plane)
+		node.p.z = float(hit["z"])
+		node.contact_kind = int(hit["kind"])
+		node.contact_tri = int(hit["tri"])
+		node.contact_elem = int(hit["elem"])
+		node.contact_normal = hit["normal"]
 
 
 func _draw_barmesh(bm: BarMesh) -> void:
@@ -81,5 +86,16 @@ func _draw_barmesh(bm: BarMesh) -> void:
 		var b: BarMesh.BMBar = bar
 		im.surface_add_vertex(cad_to_godot(b.nodeback.p))
 		im.surface_add_vertex(cad_to_godot(b.nodefore.p))
+	var tick: float = 0.003
+	for node in bm.nodes:
+		var nd: BarMesh.BMNode = node
+		if nd.contact_kind == BarMesh.BMNode.ContactFeature.NONE:
+			continue
+		if nd.contact_normal.length_squared() < 1e-12:
+			continue
+		var p0: Vector3 = nd.p
+		var p1: Vector3 = nd.p + nd.contact_normal * tick
+		im.surface_add_vertex(cad_to_godot(p0))
+		im.surface_add_vertex(cad_to_godot(p1))
 	im.surface_end()
 	mesh = im
