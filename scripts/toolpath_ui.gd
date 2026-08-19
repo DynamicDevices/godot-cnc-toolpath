@@ -25,20 +25,31 @@ func _ready() -> void:
 	strategy.disabled = true
 	$Panel/VBox/StrategyLabel.visible = false
 	strategy.visible = false
-	stepover_label.visible = false
-	stepover.visible = false
-	z_stepdown_label.visible = false
-	z_stepdown.visible = false
-	$Panel/VBox/SampleLabel.visible = false
-	sample_step.visible = false
+	stepover_label.visible = true
+	stepover.visible = true
+	stepover_label.text = "Stepover (mm)"
+	stepover.min_value = 0.1
+	stepover.value = 1.0
+	z_stepdown_label.visible = true
+	z_stepdown.visible = true
+	z_stepdown_label.text = "Normal angle (deg)"
+	z_stepdown.min_value = 1.0
+	z_stepdown.max_value = 90.0
+	z_stepdown.value = 15.0
+	$Panel/VBox/SampleLabel.visible = true
+	sample_step.visible = true
+	$Panel/VBox/SampleLabel.text = "XY epsilon (mm)"
+	sample_step.min_value = 0.001
+	sample_step.step = 0.001
+	sample_step.value = 0.01
 	$Panel/VBox/Title.text = "Tool surface (CAD Z-up)"
 	$Panel/VBox/Bake.text = "Build tool surface"
-	status.text = "BarMesh only — raster/waterline archived."
+	status.text = "BarMesh refine: epsilon / stepover / angle."
 	$Panel/VBox/Bake.pressed.connect(_on_bake)
 
 func _on_bake() -> void:
 	status.text = "Building…"
-	bake_requested.emit("barmesh", tool_radius.value, 0.0, 0.0, 0.0)
+	bake_requested.emit("barmesh", tool_radius.value, stepover.value, sample_step.value, z_stepdown.value)
 
 func set_status(text: String) -> void:
 	status.text = text
