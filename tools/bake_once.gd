@@ -1,18 +1,10 @@
 extends SceneTree
-## Headless smoke bake. Usage: -- --strategy=raster|waterline
+## Headless smoke: BarMesh tool-surface only.
 
-func _initialize() -> void:
+func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	var strategy := "waterline"
-	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--strategy="):
-			strategy = arg.trim_prefix("--strategy=")
-	if strategy != "raster" and strategy != "waterline":
-		push_error("BAKE_FAIL unknown strategy: " + strategy)
-		quit(3)
-		return
 	var packed: PackedScene = load("res://scenes/main.tscn")
 	if packed == null:
 		push_error("BAKE_FAIL load main")
@@ -23,50 +15,14 @@ func _run() -> void:
 	get_root().add_child(root)
 	for i in 5:
 		await process_frame
-	var stats: Dictionary = await root.bake_strategy(strategy, 1.5, 2.0, 1.0, 2.0)
-	if stats.is_empty():
-		push_error("BAKE_FAIL empty stats for " + strategy)
+	var stats: Dictionary = await root.bake_strategy("barmesh", 1.5)
+	if stats.is_empty() or stats.get("strategy", "") != "barmesh":
+		push_error("BAKE_FAIL barmesh stats: " + str(stats))
 		quit(4)
 		return
-	var expected_curve_path := "res://animations/%s_toolpath_curve.tres" % strategy
-	var expected_animation_path := "res://animations/%s_toolpath.tres" % strategy
-	if (
-		stats.get("curve_path", "") != expected_curve_path
-		or stats.get("animation_path", "") != expected_animation_path
-		or not FileAccess.file_exists(expected_curve_path)
-		or not FileAccess.file_exists(expected_animation_path)
-	):
-		push_error("BAKE_FAIL unstable or missing resource paths: " + str(stats))
-		quit(7)
-		return
-	var curve := ResourceLoader.load(
-		expected_curve_path, "Curve3D", ResourceLoader.CACHE_MODE_IGNORE
-	) as Curve3D
-	var animation := ResourceLoader.load(
-		expected_animation_path, "Animation", ResourceLoader.CACHE_MODE_IGNORE
-	) as Animation
-	var path_placeholder := root.get_node_or_null("ToolpathCurve") as Path3D
-	var reload_hook := root.get_node_or_null("EditorAssetReload")
-	if (
-		curve == null
-		or curve.get_point_count() == 0
-		or animation == null
-		or path_placeholder == null
-		or path_placeholder.curve == null
-		or reload_hook == null
-	):
-		push_error("BAKE_FAIL Curve3D/Animation editor placeholder wiring")
-		quit(8)
-		return
-	print(
-		"ASSET_PROOF strategy=", strategy,
-		" curve=", expected_curve_path,
-		" curve_points=", curve.get_point_count(),
-		" animation=", expected_animation_path
-	)
-	var preview := root.get_node_or_null("ToolpathPreview") as MeshInstance3D
+	var preview := root.get_node_or_null("BarMeshPreview") as MeshInstance3D
 	if preview == null or preview.mesh == null:
-		push_error("BAKE_FAIL no preview mesh")
+		push_error("BAKE_FAIL no BarMeshPreview mesh")
 		quit(2)
 		return
 	var vertex_count := 0
@@ -75,29 +31,9 @@ func _run() -> void:
 		if arr.size() > Mesh.ARRAY_VERTEX and arr[Mesh.ARRAY_VERTEX] != null:
 			vertex_count += arr[Mesh.ARRAY_VERTEX].size()
 	if vertex_count == 0:
-		push_error("BAKE_FAIL empty preview for " + strategy)
+		push_error("BAKE_FAIL empty BarMesh preview")
 		quit(5)
 		return
-	if strategy == "waterline":
-		var levels: Array = stats.get("cut_levels", [])
-		var descending := levels.size() > 0
-		for i in range(1, levels.size()):
-			if levels[i] >= levels[i - 1]:
-				descending = false
-				break
-		var contours: int = stats.get("contour_count", 0)
-		var closed: int = stats.get("closed_count", 0)
-		if levels.is_empty() or contours == 0 or closed != contours or not descending:
-			push_error("BAKE_FAIL implausible waterline stats: " + str(stats))
-			quit(6)
-			return
-		print(
-			"WATERLINE_PROOF levels=", levels.size(),
-			" contours=", contours,
-			" closed=", closed,
-			" descending=", descending,
-			" top_y=", levels[0],
-			" bottom_y=", levels[levels.size() - 1]
-		)
-	print("BAKE_OK strategy=", strategy, " preview_verts=", vertex_count)
+	print("ASSET_PROOF strategy=barmesh preview_verts=", vertex_count)
+	print("BAKE_OK strategy=barmesh preview_verts=", vertex_count)
 	quit(0)

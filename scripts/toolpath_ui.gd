@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Runtime controls shared by raster and waterline toolpath bakes.
+## Tool-surface controls. Raster/waterline UI is on archive/raster-waterline-toolpaths.
 
 signal bake_requested(
 	strategy: String,
@@ -19,35 +19,26 @@ signal bake_requested(
 @onready var status: Label = $Panel/VBox/Status
 
 func _ready() -> void:
-	strategy.add_item("Raster")
-	strategy.set_item_metadata(0, "raster")
-	strategy.add_item("Waterline (constant Z)")
-	strategy.set_item_metadata(1, "waterline")
-	strategy.add_item("BarMesh viz")
-	strategy.set_item_metadata(2, "barmesh")
-	strategy.item_selected.connect(_on_strategy_selected)
+	strategy.clear()
+	strategy.add_item("BarMesh (tool surface)")
+	strategy.set_item_metadata(0, "barmesh")
+	strategy.disabled = true
+	$Panel/VBox/StrategyLabel.visible = false
+	strategy.visible = false
+	stepover_label.visible = false
+	stepover.visible = false
+	z_stepdown_label.visible = false
+	z_stepdown.visible = false
+	$Panel/VBox/SampleLabel.visible = false
+	sample_step.visible = false
+	$Panel/VBox/Title.text = "Tool surface (CAD Z-up)"
+	$Panel/VBox/Bake.text = "Build tool surface"
+	status.text = "BarMesh only — raster/waterline archived."
 	$Panel/VBox/Bake.pressed.connect(_on_bake)
-	_on_strategy_selected(strategy.selected)
 
 func _on_bake() -> void:
-	status.text = "Baking…"
-	var strategy_id: String = strategy.get_item_metadata(strategy.selected)
-	bake_requested.emit(
-		strategy_id,
-		tool_radius.value,
-		stepover.value,
-		sample_step.value,
-		z_stepdown.value
-	)
-
-func _on_strategy_selected(index: int) -> void:
-	var id: String = str(strategy.get_item_metadata(index))
-	var is_waterline: bool = id == "waterline"
-	var is_barmesh: bool = id == "barmesh"
-	stepover_label.visible = not is_waterline and not is_barmesh
-	stepover.visible = not is_waterline and not is_barmesh
-	z_stepdown_label.visible = is_waterline
-	z_stepdown.visible = is_waterline
+	status.text = "Building…"
+	bake_requested.emit("barmesh", tool_radius.value, 0.0, 0.0, 0.0)
 
 func set_status(text: String) -> void:
 	status.text = text
