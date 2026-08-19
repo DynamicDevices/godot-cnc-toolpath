@@ -86,6 +86,7 @@ func _apply_contact(node: BarMesh.BMNode, R: float, tris: Array, z_plane: float)
 	node.contact_tri = int(hit["tri"])
 	node.contact_elem = int(hit["elem"])
 	node.contact_normal = hit["normal"]
+	node.contact_point = hit["point"]
 
 
 func _refine_barmesh(bm: BarMesh, R: float, tris: Array, z_plane: float, z_above: float, my_run: int) -> void:
@@ -124,8 +125,8 @@ func _draw_barmesh(bm: BarMesh) -> void:
 	im.surface_begin(Mesh.PRIMITIVE_LINES)
 	for bar in bm.live_bars():
 		var b: BarMesh.BMBar = bar
-		im.surface_add_vertex(cad_to_godot(b.nodeback.p))
-		im.surface_add_vertex(cad_to_godot(b.nodefore.p))
+		im.surface_add_vertex(cad_to_godot(_draw_pt(b.nodeback)))
+		im.surface_add_vertex(cad_to_godot(_draw_pt(b.nodefore)))
 	var tick: float = 0.003
 	for node in bm.nodes:
 		var nd: BarMesh.BMNode = node
@@ -133,9 +134,15 @@ func _draw_barmesh(bm: BarMesh) -> void:
 			continue
 		if nd.contact_normal.length_squared() < 1e-12:
 			continue
-		var p0: Vector3 = nd.p
-		var p1: Vector3 = nd.p + nd.contact_normal * tick
+		var p0: Vector3 = _draw_pt(nd)
+		var p1: Vector3 = p0 + nd.contact_normal * tick
 		im.surface_add_vertex(cad_to_godot(p0))
 		im.surface_add_vertex(cad_to_godot(p1))
 	im.surface_end()
 	mesh = im
+
+
+func _draw_pt(nd: BarMesh.BMNode) -> Vector3:
+	if nd.contact_kind != BarMesh.BMNode.ContactFeature.NONE:
+		return nd.contact_point
+	return nd.p
