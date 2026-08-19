@@ -13,9 +13,14 @@ const Contact = preload("res://barmesh/tool_contact.gd")
 @export var stepover_mm: float = 1.0
 @export var angle_deg: float = 15.0
 @export var max_refine_passes: int = 12
+@export var show_bars: bool = true
+@export var show_normals: bool = true
+@export var include_base_plane: bool = true
 
 var _playing: bool = false
 var _run_id: int = 0
+var _last_bm: BarMesh
+var _normals_mi: MeshInstance3D
 
 
 static func cad_to_godot(p: Vector3) -> Vector3:
@@ -31,6 +36,15 @@ func _ready() -> void:
 	mat.emission = Color(0.7, 0.1, 0.5)
 	mat.emission_energy_multiplier = 1.8
 	material_override = mat
+	_normals_mi = MeshInstance3D.new()
+	_normals_mi.name = "ContactNormals"
+	var nmat := StandardMaterial3D.new()
+	nmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	nmat.albedo_color = Color(0.25, 0.95, 0.45)
+	nmat.emission_enabled = true
+	nmat.emission = Color(0.1, 0.6, 0.25)
+	_normals_mi.material_override = nmat
+	add_child(_normals_mi)
 	if DisplayServer.get_name() == "headless":
 		row_delay_s = 0.0
 	call_deferred("play_over_part")
@@ -49,8 +63,12 @@ func play_over_part(p_radius: float = -1.0) -> void:
 	aabb = aabb.grow(pad_m)
 	var cad: Dictionary = Contact.cad_aabb_from_godot(aabb)
 	var tris: Array = Contact.mesh_triangles_cad(part)
-	var xpart := BarMeshGD.Partition1.new(cad["xmin"], cad["xmax"], nparts)
-	var ypart := BarMeshGD.Partition1.new(cad["ymin"], cad["ymax"], nparts)
+	if include_base_plane:
+		tris.append_array(_base_plane_tris(cad))
+	var nx := _grid_parts(cad["xmin"], cad["xmax"])
+	var ny := _grid_parts(cad["ymin"], cad["ymax"])
+	var xpart := BarMeshGD.Partition1.new(cad["xmin"], cad["xmax"], nx)
+	var ypart := BarMeshGD.Partition1.new(cad["ymin"], cad["ymax"], ny)
 	var z_above: float = cad["zmax"] + R + pad_m
 	var z_plane: float = cad["zmin"]
 	var bm := BarMeshGD.new()
@@ -120,26 +138,65 @@ func _refine_barmesh(bm: BarMesh, R: float, tris: Array, z_plane: float, z_above
 			await get_tree().create_timer(row_delay_s).timeout
 
 
+func _grid_parts(lo: float, hi: float) -> int:
+	var gs: float = maxf(stepover_mm * 0.001, 0.0002)
+	return clampi(int(ceil((hi - lo) / gs)), 1, 48)
+
+
+func _base_plane_tris(cad: Dictionary) -> Array:
+	var z0: float = float(cad["zmin"])
+	var p00 := Vector3(cad["xmin"], cad["ymin"], z0)
+	var p10 := Vector3(cad["xmax"], cad["ymin"], z0)
+	var p11 := Vector3(cad["xmax"], cad["ymax"], z0)
+	var p01 := Vector3(cad["xmin"], cad["ymax"], z0)
+	return [[p00, p10, p11], [p00, p11, p01]]
+
+
+func set_show_bars(v: bool) -> void:
+	show_bars = v
+	if _last_bm:
+		_draw_barmesh(_last_bm)
+
+
+func set_show_normals(v: bool) -> void:
+	show_normals = v
+	if _last_bm:
+		_draw_barmesh(_last_bm)
+
+
 func _draw_barmesh(bm: BarMesh) -> void:
-	var im := ImmediateMesh.new()
-	im.surface_begin(Mesh.PRIMITIVE_LINES)
-	for bar in bm.live_bars():
-		var b: BarMesh.BMBar = bar
-		im.surface_add_vertex(cad_to_godot(_draw_pt(b.nodeback)))
-		im.surface_add_vertex(cad_to_godot(_draw_pt(b.nodefore)))
-	var tick: float = 0.003
-	for node in bm.nodes:
-		var nd: BarMesh.BMNode = node
-		if nd.contact_kind == BarMesh.BMNode.ContactFeature.NONE:
-			continue
-		if nd.contact_normal.length_squared() < 1e-12:
-			continue
-		var p0: Vector3 = _draw_pt(nd)
-		var p1: Vector3 = p0 + nd.contact_normal * tick
-		im.surface_add_vertex(cad_to_godot(p0))
-		im.surface_add_vertex(cad_to_godot(p1))
-	im.surface_end()
-	mesh = im
+	_last_bm = bm
+	if show_bars:
+		var im := ImmediateMesh.new()
+		im.surface_begin(Mesh.PRIMITIVE_LINES)
+		for bar in bm.live_bars():
+			var b: BarMesh.BMBar = bar
+			im.surface_add_vertex(cad_to_godot(_draw_pt(b.nodeback)))
+			im.surface_add_vertex(cad_to_godot(_draw_pt(b.nodefore)))
+		im.surface_end()
+		mesh = im
+	else:
+		mesh = null
+	if _normals_mi == null:
+		return
+	if show_normals:
+		var nim := ImmediateMesh.new()
+		nim.surface_begin(Mesh.PRIMITIVE_LINES)
+		var tick: float = 0.003
+		for node in bm.nodes:
+			var nd: BarMesh.BMNode = node
+			if nd.contact_kind == BarMesh.BMNode.ContactFeature.NONE:
+				continue
+			if nd.contact_normal.length_squared() < 1e-12:
+				continue
+			var p0: Vector3 = _draw_pt(nd)
+			var p1: Vector3 = p0 + nd.contact_normal * tick
+			nim.surface_add_vertex(cad_to_godot(p0))
+			nim.surface_add_vertex(cad_to_godot(p1))
+		nim.surface_end()
+		_normals_mi.mesh = nim
+	else:
+		_normals_mi.mesh = null
 
 
 func _draw_pt(nd: BarMesh.BMNode) -> Vector3:

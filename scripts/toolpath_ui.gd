@@ -46,6 +46,34 @@ func _ready() -> void:
 	$Panel/VBox/Bake.text = "Build tool surface"
 	status.text = "BarMesh refine: epsilon / stepover / angle."
 	$Panel/VBox/Bake.pressed.connect(_on_bake)
+	var bars := $Panel/VBox/ShowBars as CheckBox
+	var norms := $Panel/VBox/ShowNormals as CheckBox
+	var ortho := $Panel/VBox/Ortho as CheckBox
+	if bars:
+		bars.button_pressed = true
+		bars.toggled.connect(func(v: bool) -> void:
+			var viz := _preview()
+			if viz and viz.has_method("set_show_bars"):
+				viz.set_show_bars(v)
+		)
+	if norms:
+		norms.button_pressed = true
+		norms.toggled.connect(func(v: bool) -> void:
+			var viz := _preview()
+			if viz and viz.has_method("set_show_normals"):
+				viz.set_show_normals(v)
+		)
+	if ortho:
+		ortho.button_pressed = true
+		ortho.toggled.connect(func(v: bool) -> void:
+			var cam := get_parent().get_node_or_null("Camera3D")
+			if cam and cam.has_method("set_orthogonal"):
+				cam.set_orthogonal(v)
+		)
+
+
+func _preview() -> Node:
+	return get_parent().get_node_or_null("BarMeshPreview")
 
 func _on_bake() -> void:
 	status.text = "Building…"
