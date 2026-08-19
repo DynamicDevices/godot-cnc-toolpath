@@ -99,14 +99,14 @@ static func drop_tool_contact(x: float, y: float, radius: float, tris_cad: Array
 				tri_i = ti
 				elem = ei
 				hit_pt = hit["point"]
-		var z_f: float = _ball_face_z(x, y, radius, a, b, c)
-		if not is_nan(z_f) and z_f > z_best:
-			z_best = z_f
+		var face: Dictionary = _ball_face_hit(x, y, radius, a, b, c)
+		if not face.is_empty() and float(face["z"]) > z_best:
+			z_best = float(face["z"])
 			found = true
 			kind = 3
 			tri_i = ti
 			elem = -1
-			hit_pt = Vector3(x, y, z_f - radius)
+			hit_pt = face["point"]
 	if not found:
 		return {
 			"z": fallback_z,
@@ -123,6 +123,7 @@ static func drop_tool_contact(x: float, y: float, radius: float, tris_cad: Array
 		n = (tri_n[1] - tri_n[0]).cross(tri_n[2] - tri_n[0]).normalized()
 		if n.dot(cl - tri_n[0]) < 0.0:
 			n = -n
+		hit_pt = cl - n * radius
 	elif n.length_squared() < 1e-12:
 		n = Vector3(0, 0, 1)
 	return {
@@ -162,22 +163,61 @@ static func _ball_edge_hit(x: float, y: float, R: float, p0: Vector3, p1: Vector
 
 
 static func _ball_face_z(x: float, y: float, R: float, a: Vector3, b: Vector3, c: Vector3) -> float:
-	var den := (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y)
-	if absf(den) < 1e-18:
+	var hit := _ball_face_hit(x, y, R, a, b, c)
+	if hit.is_empty():
 		return NAN
-	var w1 := ((b.y - c.y) * (x - c.x) + (c.x - b.x) * (y - c.y)) / den
-	var w2 := ((c.y - a.y) * (x - c.x) + (a.x - c.x) * (y - c.y)) / den
-	var w3 := 1.0 - w1 - w2
-	if w1 < 0.0 or w2 < 0.0 or w3 < 0.0:
-		return NAN
+	return float(hit["z"])
+
+
+static func _ball_face_hit(x: float, y: float, R: float, a: Vector3, b: Vector3, c: Vector3) -> Dictionary:
+	## Tangent CL only if the contact point (CL − R n) lies in the triangle.
 	var n := (b - a).cross(c - a)
 	if absf(n.z) < 1e-10:
-		return NAN
+		return {}
 	var nlen := n.length()
 	if nlen < 1e-12:
-		return NAN
+		return {}
 	n /= nlen
 	var base := n.x * (x - a.x) + n.y * (y - a.y) - n.z * a.z
 	var z1: float = (R - base) / n.z
 	var z2: float = (-R - base) / n.z
-	return maxf(z1, z2)
+	var best_z: float = -1e30
+	var best_pt := Vector3.ZERO
+	var found := false
+	for z in [z1, z2]:
+		var cl := Vector3(x, y, z)
+		var nn: Vector3 = n
+		if nn.dot(cl - a) < 0.0:
+			nn = -nn
+		var pt: Vector3 = cl - nn * R
+		if not _point_in_triangle(pt, a, b, c):
+			continue
+		if z > best_z:
+			best_z = z
+			found = true
+			best_pt = pt
+	if not found:
+		return {}
+	return {"z": best_z, "point": best_pt}
+
+
+static func _point_in_triangle(p: Vector3, a: Vector3, b: Vector3, c: Vector3) -> bool:
+	var v0 := b - a
+	var v1 := c - a
+	var v2 := p - a
+	var n := v0.cross(v1)
+	if absf(n.dot(v2)) > 1e-6 * n.length():
+		return false
+	var d00 := v0.dot(v0)
+	var d01 := v0.dot(v1)
+	var d11 := v1.dot(v1)
+	var d20 := v2.dot(v0)
+	var d21 := v2.dot(v1)
+	var denom := d00 * d11 - d01 * d01
+	if absf(denom) < 1e-18:
+		return false
+	var v := (d11 * d20 - d01 * d21) / denom
+	var w := (d00 * d21 - d01 * d20) / denom
+	var u := 1.0 - v - w
+	var eps := -1e-6
+	return u >= eps and v >= eps and w >= eps

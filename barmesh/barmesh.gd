@@ -34,6 +34,8 @@ class BMNode:
 	var contact_tri: int = -1
 	## Vertex 0–2, edge 0–2 (a-b, b-c, c-a), unused for FACE.
 	var contact_elem: int = -1
+	## Point on the mesh where the ball is tangent (CAD Z-up).
+	var contact_point: Vector3 = Vector3.ZERO
 
 	func _init(p_p: Vector3, p_i: int) -> void:
 		p = p_p
