@@ -67,11 +67,22 @@ jobs:
               fi
               grep -q "DROP_QUALITY_OK" "$QOUT"
               [ "$QRC" -eq 0 ]
+              EOUT=$(mktemp)
+              set +e
+              godot --headless --path /src -s res://tools/test_eartip_quality.gd 2>&1 | tee "$EOUT"
+              ERC=${PIPESTATUS[0]}
+              set -e
+              if grep -E "Parse Error|Failed to load script|EARTIP_QUALITY_FAIL" "$EOUT"; then
+                echo "::error::Godot eartip quality (fall-through) failure"
+                exit 1
+              fi
+              grep -q "EARTIP_QUALITY_OK" "$EOUT"
+              [ "$ERC" -eq 0 ]
             '
 
       - name: Summarize
         if: always()
         run: |
           echo "### Godot CI" >> "$GITHUB_STEP_SUMMARY"
-          echo "Self-hosted Docker \`ghcr.io/sharkyrawr/godot-docker:4.6\` — bake + \`test_contact\` + \`test_drop_quality\` (Julian flat/roof model)" >> "$GITHUB_STEP_SUMMARY"
+          echo "bake + contact + drop_quality (flat/roof) + **eartip penetration** (\`test_eartip_quality.gd\`)" >> "$GITHUB_STEP_SUMMARY"
           echo "Status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"

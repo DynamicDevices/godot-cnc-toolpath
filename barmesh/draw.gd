@@ -20,12 +20,21 @@ const Contact = preload("res://barmesh/tool_contact.gd")
 var _playing: bool = false
 var _run_id: int = 0
 var _last_bm: BarMesh
+var _last_tris: Array = []
 var _normals_mi: MeshInstance3D
 
 
 static func cad_to_godot(p: Vector3) -> Vector3:
 	## CAD Z-up (x, y, z) -> Godot Y-up (x, z, y).
 	return Vector3(p.x, p.z, p.y)
+
+
+func get_last_barmesh() -> BarMesh:
+	return _last_bm
+
+
+func get_last_tris_cad() -> Array:
+	return _last_tris
 
 
 func _ready() -> void:
@@ -71,6 +80,7 @@ func play_over_part(p_radius: float = -1.0) -> void:
 	var ypart := BarMeshGD.Partition1.new(cad["ymin"], cad["ymax"], ny)
 	var z_above: float = cad["zmax"] + R + pad_m
 	var z_plane: float = cad["zmin"]
+	_last_tris = tris
 	var bm := BarMeshGD.new()
 	bm.start_rect_bar_mesh(xpart, ypart, z_above)
 	var more := true

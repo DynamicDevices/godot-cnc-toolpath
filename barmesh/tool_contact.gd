@@ -280,3 +280,74 @@ static func _point_in_triangle(p: Vector3, a: Vector3, b: Vector3, c: Vector3) -
 	var u := 1.0 - v - w
 	var eps := -1e-6
 	return u >= eps and v >= eps and w >= eps
+
+
+static func highest_surface_z_at_xy(x: float, y: float, tris_cad: Array) -> float:
+	## Highest mesh z along vertical line (x,y,*) — for fall-through vs top skin.
+	var z_best: float = -1e30
+	var found := false
+	for tri in tris_cad:
+		var a: Vector3 = tri[0]
+		var b: Vector3 = tri[1]
+		var c: Vector3 = tri[2]
+		var n := (b - a).cross(c - a)
+		if absf(n.z) < 1e-12:
+			continue
+		# Plane: n·(p-a)=0 → z = a.z + (-n.x*(x-a.x)-n.y*(y-a.y))/n.z
+		var z: float = a.z - (n.x * (x - a.x) + n.y * (y - a.y)) / n.z
+		var p := Vector3(x, y, z)
+		if not _point_in_triangle(p, a, b, c):
+			continue
+		if z > z_best:
+			z_best = z
+			found = true
+	if not found:
+		return NAN
+	return z_best
+
+
+static func min_distance_point_to_tris(p: Vector3, tris_cad: Array) -> float:
+	## Closest distance from point to any triangle (for sphere penetration checks).
+	var best: float = 1e30
+	for tri in tris_cad:
+		var d: float = _point_triangle_distance(p, tri[0], tri[1], tri[2])
+		if d < best:
+			best = d
+	return best
+
+
+static func _point_triangle_distance(p: Vector3, a: Vector3, b: Vector3, c: Vector3) -> float:
+	var ab := b - a
+	var ac := c - a
+	var ap := p - a
+	var d1 := ab.dot(ap)
+	var d2 := ac.dot(ap)
+	if d1 <= 0.0 and d2 <= 0.0:
+		return ap.length()
+	var bp := p - b
+	var d3 := ab.dot(bp)
+	var d4 := ac.dot(bp)
+	if d3 >= 0.0 and d4 <= d3:
+		return bp.length()
+	var vc := d1 * d4 - d3 * d2
+	if vc <= 0.0 and d1 >= 0.0 and d3 <= 0.0:
+		var v: float = d1 / (d1 - d3)
+		return (a + ab * v - p).length()
+	var cp := p - c
+	var d5 := ab.dot(cp)
+	var d6 := ac.dot(cp)
+	if d6 >= 0.0 and d5 <= d6:
+		return cp.length()
+	var vb := d5 * d2 - d1 * d6
+	if vb <= 0.0 and d2 >= 0.0 and d6 <= 0.0:
+		var w: float = d2 / (d2 - d6)
+		return (a + ac * w - p).length()
+	var va := d3 * d6 - d5 * d4
+	if va <= 0.0 and (d4 - d3) >= 0.0 and (d5 - d6) >= 0.0:
+		var w2: float = (d4 - d3) / ((d4 - d3) + (d5 - d6))
+		return (b + (c - b) * w2 - p).length()
+	var n := ab.cross(ac)
+	var nlen2 := n.length_squared()
+	if nlen2 < 1e-24:
+		return ap.length()
+	return absf(n.dot(ap)) / sqrt(nlen2)
