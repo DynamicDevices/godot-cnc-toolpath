@@ -56,11 +56,22 @@ jobs:
               fi
               grep -q "CONTACT_OK" "$COUT"
               [ "$CRC" -eq 0 ]
+              QOUT=$(mktemp)
+              set +e
+              godot --headless --path /src -s res://tools/test_drop_quality.gd 2>&1 | tee "$QOUT"
+              QRC=${PIPESTATUS[0]}
+              set -e
+              if grep -E "Parse Error|Failed to load script|DROP_QUALITY_FAIL" "$QOUT"; then
+                echo "::error::Godot drop quality (flat/roof) failure"
+                exit 1
+              fi
+              grep -q "DROP_QUALITY_OK" "$QOUT"
+              [ "$QRC" -eq 0 ]
             '
 
       - name: Summarize
         if: always()
         run: |
           echo "### Godot CI" >> "$GITHUB_STEP_SUMMARY"
-          echo "Self-hosted Docker image \`ghcr.io/sharkyrawr/godot-docker:4.6\` — BarMesh bake + contact poka-yoke (\`tools/test_contact.gd\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Self-hosted Docker \`ghcr.io/sharkyrawr/godot-docker:4.6\` — bake + \`test_contact\` + \`test_drop_quality\` (Julian flat/roof model)" >> "$GITHUB_STEP_SUMMARY"
           echo "Status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
