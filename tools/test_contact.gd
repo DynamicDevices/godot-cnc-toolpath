@@ -93,5 +93,21 @@ func _run() -> void:
 		_fail("tilt face contact XY unexpected equal to CL")
 		return
 
-	print("CONTACT_OK face,vertex,edge,tilt_xy R=", R)
+	# Tilted edge: |CL−pt|=R and (CL−pt)⊥edge (XY-only drop was wrong here).
+	var e0 := Vector3(0, 0, 0)
+	var e1 := Vector3(0.02, 0, 0.01)
+	var skinny: Array = [[e0, e1, Vector3(0.01, 1e-4, 0.005)]]
+	var eh: Dictionary = Contact.drop_tool_contact(0.01, 0.0, R, skinny, -1.0)
+	_assert_cl_xy(eh, 0.01, 0.0)
+	var cl_e := Vector3(float(eh["x"]), float(eh["y"]), float(eh["z"]))
+	if absf(cl_e.distance_to(eh["point"]) - R) > 1e-4:
+		_fail("tilted edge |CL-pt| != R " + str(eh))
+		return
+	var edir: Vector3 = (e1 - e0).normalized()
+	var radial: Vector3 = cl_e - eh["point"]
+	if absf(radial.dot(edir)) > 1e-3:
+		_fail("tilted edge not perpendicular " + str(radial.dot(edir)))
+		return
+
+	print("CONTACT_OK face,vertex,edge,tilt_xy,tilt_edge R=", R)
 	quit(0)

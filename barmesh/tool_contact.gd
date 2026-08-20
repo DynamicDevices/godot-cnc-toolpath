@@ -160,22 +160,65 @@ static func _ball_edge_z(x: float, y: float, R: float, p0: Vector3, p1: Vector3)
 
 
 static func _ball_edge_hit(x: float, y: float, R: float, p0: Vector3, p1: Vector3) -> Dictionary:
-	var ex := p1.x - p0.x
-	var ey := p1.y - p0.y
-	var ez := p1.z - p0.z
-	var len2 := ex * ex + ey * ey
-	if len2 < 1e-18:
+	## True ball↔segment contact: (CL − pt) ⊥ edge and |CL − pt| = R.
+	## (Old XY-only projection is wrong for tilted edges and causes fall-through.)
+	var dx := p1.x - p0.x
+	var dy := p1.y - p0.y
+	var dz := p1.z - p0.z
+	var L2 := dx * dx + dy * dy + dz * dz
+	if L2 < 1e-18:
 		return {}
-	var t := ((x - p0.x) * ex + (y - p0.y) * ey) / len2
-	t = clampf(t, 0.0, 1.0)
-	var pt := Vector3(p0.x + ex * t, p0.y + ey * t, p0.z + ez * t)
-	var dx: float = x - pt.x
-	var dy: float = y - pt.y
-	var d2: float = dx * dx + dy * dy
-	var R2: float = R * R
-	if d2 > R2:
+	var cx := x - p0.x
+	var cy := y - p0.y
+	var A := cx * dx + cy * dy
+	var H2 := dx * dx + dy * dy
+	var R2 := R * R
+	var best_z: float = -1e30
+	var best_pt := Vector3.ZERO
+	var found := false
+
+	if H2 < 1e-18:
+		# Nearly vertical edge: cylinder test in XY, z from segment extent.
+		var d2xy := cx * cx + cy * cy
+		if d2xy > R2:
+			return {}
+		var z_off := sqrt(R2 - d2xy)
+		for t in [0.0, 1.0]:
+			var pt_v := Vector3(p0.x + dx * t, p0.y + dy * t, p0.z + dz * t)
+			var z_cl: float = pt_v.z + z_off
+			if z_cl > best_z:
+				best_z = z_cl
+				best_pt = pt_v
+				found = true
+	else:
+		# Quadratic in cz = z - p0.z from |C-P|^2=R^2 and (C-P)·d=0.
+		var a := H2
+		var b := -2.0 * A * dz
+		var c := L2 * (cx * cx + cy * cy) - A * A - R2 * L2
+		var disc := b * b - 4.0 * a * c
+		if disc < 0.0:
+			return {}
+		var sdisc := sqrt(disc)
+		for sign in [-1.0, 1.0]:
+			var cz: float = (-b + sign * sdisc) / (2.0 * a)
+			var z: float = p0.z + cz
+			var t: float = (A + cz * dz) / L2
+			if t < -1e-6 or t > 1.0 + 1e-6:
+				continue
+			t = clampf(t, 0.0, 1.0)
+			var pt := Vector3(p0.x + dx * t, p0.y + dy * t, p0.z + dz * t)
+			var cl := Vector3(x, y, z)
+			if absf(cl.distance_to(pt) - R) > 1e-3:
+				continue
+			if z > best_z:
+				best_z = z
+				best_pt = pt
+				found = true
+
+	# Endpoints are also covered by vertex tests; keep segment-interior hits here.
+	if not found:
 		return {}
-	return {"z": pt.z + sqrt(R2 - d2), "point": pt}
+	return {"z": best_z, "point": best_pt}
 
 
 static func _ball_face_z(x: float, y: float, R: float, a: Vector3, b: Vector3, c: Vector3) -> float:

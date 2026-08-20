@@ -182,16 +182,13 @@ func _draw_barmesh(bm: BarMesh) -> void:
 	if show_normals:
 		var nim := ImmediateMesh.new()
 		nim.surface_begin(Mesh.PRIMITIVE_LINES)
-		var tick: float = 0.003
 		for node in bm.nodes:
 			var nd: BarMesh.BMNode = node
 			if nd.contact_kind == BarMesh.BMNode.ContactFeature.NONE:
 				continue
-			if nd.contact_normal.length_squared() < 1e-12:
-				continue
-			# Normals start at mesh contact; bars use cutter CL (fixed XY).
+			# Radius-length: mesh contact ↔ tool centre (CL). Length should be R when tangent.
 			var p0: Vector3 = nd.contact_point
-			var p1: Vector3 = p0 + nd.contact_normal * tick
+			var p1: Vector3 = nd.p
 			nim.surface_add_vertex(cad_to_godot(p0))
 			nim.surface_add_vertex(cad_to_godot(p1))
 		nim.surface_end()

@@ -70,6 +70,16 @@ func _ready() -> void:
 			if cam and cam.has_method("apply_orthogonal"):
 				cam.apply_orthogonal(v)
 		)
+	var flat := $Panel/VBox/DebugFlatMesh as CheckBox
+	if flat:
+		flat.button_pressed = false
+		flat.toggled.connect(func(v: bool) -> void:
+			var part := get_parent().get_node_or_null("MeshRoot/Part")
+			if part and part.has_method("set_debug_flat_mesh"):
+				part.set_debug_flat_mesh(v)
+			# Rebuild lattice on the substituted mesh.
+			_on_bake()
+		)
 
 
 func _preview() -> Node:
