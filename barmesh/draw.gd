@@ -189,7 +189,8 @@ func _draw_barmesh(bm: BarMesh) -> void:
 				continue
 			if nd.contact_normal.length_squared() < 1e-12:
 				continue
-			var p0: Vector3 = _draw_pt(nd)
+			# Normals start at mesh contact; bars use cutter CL (fixed XY).
+			var p0: Vector3 = nd.contact_point
 			var p1: Vector3 = p0 + nd.contact_normal * tick
 			nim.surface_add_vertex(cad_to_godot(p0))
 			nim.surface_add_vertex(cad_to_godot(p1))
@@ -200,6 +201,6 @@ func _draw_barmesh(bm: BarMesh) -> void:
 
 
 func _draw_pt(nd: BarMesh.BMNode) -> Vector3:
-	if nd.contact_kind != BarMesh.BMNode.ContactFeature.NONE:
-		return nd.contact_point
+	## Lattice = cutter locations. Drop is along Z: CL keeps input (x, y).
+	## Do not draw at contact_point — tilted faces shift contact XY and break overhead regularity.
 	return nd.p
