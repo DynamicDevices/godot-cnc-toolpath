@@ -66,7 +66,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		var mm := event as InputEventMouseMotion
 		if _orbiting:
 			_yaw -= mm.relative.x * sensitivity
-			_pitch = clampf(_pitch - mm.relative.y * sensitivity, 0.05, 1.4)
+			# Allow true overhead (π/2) like Godot Editor top view; keep a tiny floor so we can orbit out.
+			_pitch = clampf(_pitch - mm.relative.y * sensitivity, 0.02, PI * 0.5)
 			_apply()
 			get_viewport().set_input_as_handled()
 		elif _panning:
@@ -96,4 +97,8 @@ func _apply() -> void:
 		_distance * cos(_pitch) * cos(_yaw)
 	)
 	global_position = _focus + offset
-	look_at(_focus, Vector3.UP)
+	# look_at(..., UP) fails / flips near straight-down; use a stable up near overhead.
+	var up := Vector3.UP
+	if _pitch > PI * 0.5 - 0.08:
+		up = Vector3(-sin(_yaw), 0.0, -cos(_yaw))
+	look_at(_focus, up)

@@ -109,6 +109,8 @@ static func drop_tool_contact(x: float, y: float, radius: float, tris_cad: Array
 			hit_pt = face["point"]
 	if not found:
 		return {
+			"x": x,
+			"y": y,
 			"z": fallback_z,
 			"kind": 0,
 			"tri": -1,
@@ -126,7 +128,10 @@ static func drop_tool_contact(x: float, y: float, radius: float, tris_cad: Array
 		hit_pt = cl - n * radius
 	elif n.length_squared() < 1e-12:
 		n = Vector3(0, 0, 1)
+	## CL is always (probe_x, probe_y, z). Contact point may differ in XY on tilted faces.
 	return {
+		"x": x,
+		"y": y,
 		"z": z_best,
 		"kind": kind,
 		"tri": tri_i,
