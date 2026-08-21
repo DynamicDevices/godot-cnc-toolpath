@@ -39,9 +39,138 @@ static func bar_needs_split(bar: BarMesh.BMBar, params: Params) -> bool:
 	return need_len or need_ang
 
 
-## Face/cell: MakeBarBetweenNodesF — conditions TBD with Julian; stub keeps API ready.
-static func cell_needs_split(_cell_bars: Array, _params: Params) -> bool:
+## Face/cell (MakeBarBetweenNodesF) — Julian CNC 127:
+## Prefer largest cells whose contact points stay near-coplanar; shrink XY when
+## contact normals span a wide range. Connect opposite-side nodes that are not
+## near-colinear and that avoid narrow slivers.
+static func cell_needs_split(cell_nodes: Array, params: Params) -> bool:
+	if cell_nodes.size() < 3:
+		return false
+	var xmin := INF
+	var xmax := -INF
+	var ymin := INF
+	var ymax := -INF
+	var normals: Array[Vector3] = []
+	var points: Array[Vector3] = []
+	for n in cell_nodes:
+		var node: BarMesh.BMNode = n
+		xmin = minf(xmin, node.p.x)
+		xmax = maxf(xmax, node.p.x)
+		ymin = minf(ymin, node.p.y)
+		ymax = maxf(ymax, node.p.y)
+		if node.contact_normal.length_squared() > 0.25:
+			normals.append(node.contact_normal.normalized())
+		if node.contact_point != Vector3.ZERO or node.contact_kind != BarMesh.BMNode.ContactFeature.NONE:
+			points.append(node.contact_point)
+	var dxy := maxf(xmax - xmin, ymax - ymin)
+	if dxy <= params.epsilon_m:
+		return false
+	# Wide normal range → keep this cell from staying large in XY.
+	if _normals_span_exceeds(normals, params.angle_deg):
+		return true
+	# Contact points not close to coplanar → subdivide.
+	if points.size() >= 4 and not _points_near_coplanar(points, params.epsilon_m):
+		return true
 	return false
+
+
+## Among candidate opposite-side node pairs, pick one that is not near-colinear
+## with a cell edge and that maximises the smaller of the two resulting face
+## areas (sliver avoidance). Returns [node_a, node_b] or empty.
+static func pick_cell_split_pair(cell_nodes: Array, params: Params) -> Array:
+	var n: int = cell_nodes.size()
+	if n < 4:
+		return []
+	var best: Array = []
+	var best_score := -INF
+	var cos_colin := cos(deg_to_rad(maxf(180.0 - params.angle_deg, 1.0)))
+	for i in n:
+		# Opposite-ish: about halfway around the ring.
+		var j := (i + n / 2) % n
+		if j == i:
+			continue
+		var a: BarMesh.BMNode = cell_nodes[i]
+		var b: BarMesh.BMNode = cell_nodes[j]
+		var ab := Vector2(b.p.x - a.p.x, b.p.y - a.p.y)
+		if ab.length() <= params.epsilon_m:
+			continue
+		var abn := ab.normalized()
+		# Reject if nearly colinear with either adjacent edge at a or b.
+		var prev_a: BarMesh.BMNode = cell_nodes[(i - 1 + n) % n]
+		var next_a: BarMesh.BMNode = cell_nodes[(i + 1) % n]
+		if _edge_dir_xy(prev_a, a).dot(abn) > cos_colin:
+			continue
+		if _edge_dir_xy(a, next_a).dot(abn) > cos_colin:
+			continue
+		var area_score := _split_min_poly_area_xy(cell_nodes, i, j)
+		if area_score > best_score:
+			best_score = area_score
+			best = [a, b]
+	return best
+
+
+static func _edge_dir_xy(a: BarMesh.BMNode, b: BarMesh.BMNode) -> Vector2:
+	var d := Vector2(b.p.x - a.p.x, b.p.y - a.p.y)
+	if d.length_squared() < 1e-24:
+		return Vector2.ZERO
+	return d.normalized()
+
+
+static func _normals_span_exceeds(normals: Array[Vector3], angle_deg: float) -> bool:
+	if normals.size() < 2:
+		return false
+	var lim := cos(deg_to_rad(angle_deg))
+	for i in normals.size():
+		for j in range(i + 1, normals.size()):
+			if normals[i].dot(normals[j]) < lim:
+				return true
+	return false
+
+
+static func _points_near_coplanar(points: Array[Vector3], tol: float) -> bool:
+	var p0: Vector3 = points[0]
+	var p1: Vector3 = points[1]
+	var p2: Vector3 = points[2]
+	var n := (p1 - p0).cross(p2 - p0)
+	if n.length_squared() < 1e-24:
+		return false
+	n = n.normalized()
+	for i in range(3, points.size()):
+		if absf(n.dot(points[i] - p0)) > tol:
+			return false
+	return true
+
+
+static func _split_min_poly_area_xy(cell_nodes: Array, i: int, j: int) -> float:
+	var ring_a: PackedVector2Array = PackedVector2Array()
+	var ring_b: PackedVector2Array = PackedVector2Array()
+	var n: int = cell_nodes.size()
+	var k := i
+	while true:
+		var node: BarMesh.BMNode = cell_nodes[k]
+		ring_a.append(Vector2(node.p.x, node.p.y))
+		if k == j:
+			break
+		k = (k + 1) % n
+	k = j
+	while true:
+		var node2: BarMesh.BMNode = cell_nodes[k]
+		ring_b.append(Vector2(node2.p.x, node2.p.y))
+		if k == i:
+			break
+		k = (k + 1) % n
+	return minf(_poly_area_xy(ring_a), _poly_area_xy(ring_b))
+
+
+static func _poly_area_xy(ring: PackedVector2Array) -> float:
+	if ring.size() < 3:
+		return 0.0
+	var a := 0.0
+	for i in ring.size():
+		var p: Vector2 = ring[i]
+		var q: Vector2 = ring[(i + 1) % ring.size()]
+		a += p.x * q.y - q.x * p.y
+	return absf(a) * 0.5
 
 
 ## XY placement for a new node on a live bar (z filled later by dropcutter).
