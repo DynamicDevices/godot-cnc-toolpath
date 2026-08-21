@@ -9,6 +9,6 @@ Julian’s 3-axis tool-surface mesh. **All geometry here is Z-up** (CAD).
 | `tool_contact.gd` | Ball-nose drop along **tool axis −Z** from a point above |
 | `draw.gd` | ImmediateMesh; **only** place that converts CAD Z-up → Godot Y-up `(x, z, y)` |
 
-**Conditions** live in `subdiv.gd` (shared ε / stepover / a). Split a live `Bar` with `InsertNodeIntoBarF` when **XY > epsilon** (default 0.01 mm) **and** (**3D length > stepover** 1 mm **or** contact-normal angle **> a** 15°). Cell splits (`MakeBarBetweenNodesF`): subdivide when contact normals span **> a** or contact points are not near-coplanar (and XY > ε); connect opposite-side nodes that are not near-colinear and that avoid slivers — largest coplanar cells, small XY when normals vary. Insertion XY defaults to midpoint bisection; optional plane-intersect guess brackets z/normal discontinuities along the bar.
+**Conditions** live in `subdiv.gd` (shared ε / stepover / a). Split a live `Bar` with `InsertNodeIntoBarF` when **XY > epsilon** (default 0.01 mm) **and** (**3D length > stepover** 1 mm **or** contact-normal angle **> a** 15°). Cell splits (`MakeBarBetweenNodesF`): (1) **coplanar_tol** = max ⊥ distance to best-fit plane (3 pts → 0); (2) **max pairwise contact-normal angle** (same `a`); connect opposite-side nodes that are not near-colinear and that avoid slivers. Insertion XY defaults to midpoint bisection; optional plane-intersect guess brackets z/normal discontinuities along the bar.
 
 Do not assign `Node.p` to a `Node3D.transform` without `draw.cad_to_godot`.

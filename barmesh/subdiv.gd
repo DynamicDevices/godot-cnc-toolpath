@@ -8,8 +8,9 @@ class Params:
 	## External refine knobs. Defaults: 0.01 mm, 1 mm, 15°.
 	var epsilon_m: float = 0.00001
 	var stepover_m: float = 0.001
+	## Bar length/normal split and cell (2): max angle between any pair of contact normals.
 	var angle_deg: float = 15.0
-	## Cell: max perpendicular distance of contact points from a fit plane (Julian).
+	## Cell (1): max ⊥ distance of contact points to the best-fit plane (3 pts → always 0).
 	var coplanar_tol_m: float = 0.00001
 
 
@@ -130,17 +131,56 @@ static func _normals_span_exceeds(normals: Array[Vector3], angle_deg: float) -> 
 
 
 static func _points_near_coplanar(points: Array[Vector3], tol: float) -> bool:
-	var p0: Vector3 = points[0]
-	var p1: Vector3 = points[1]
-	var p2: Vector3 = points[2]
-	var n := (p1 - p0).cross(p2 - p0)
-	if n.length_squared() < 1e-24:
+	# Three points are always coplanar (⊥ residual 0).
+	if points.size() <= 3:
+		return true
+	var plane: Dictionary = _best_fit_plane(points)
+	if not bool(plane.get("ok", false)):
 		return false
-	n = n.normalized()
-	for i in range(3, points.size()):
-		if absf(n.dot(points[i] - p0)) > tol:
+	var origin: Vector3 = plane["origin"]
+	var normal: Vector3 = plane["normal"]
+	for p in points:
+		if absf(normal.dot(p - origin)) > tol:
 			return false
 	return true
+
+
+## Best-fit plane via centroid + covariance (ilikebigbits determinant form).
+static func _best_fit_plane(points: Array[Vector3]) -> Dictionary:
+	var c := Vector3.ZERO
+	for p in points:
+		c += p
+	c /= float(points.size())
+	var xx := 0.0
+	var xy := 0.0
+	var xz := 0.0
+	var yy := 0.0
+	var yz := 0.0
+	var zz := 0.0
+	for p in points:
+		var d: Vector3 = p - c
+		xx += d.x * d.x
+		xy += d.x * d.y
+		xz += d.x * d.z
+		yy += d.y * d.y
+		yz += d.y * d.z
+		zz += d.z * d.z
+	var det_x := yy * zz - yz * yz
+	var det_y := xx * zz - xz * xz
+	var det_z := xx * yy - xy * xy
+	var abs_x := absf(det_x)
+	var abs_y := absf(det_y)
+	var abs_z := absf(det_z)
+	var n := Vector3.ZERO
+	if abs_x >= abs_y and abs_x >= abs_z:
+		n = Vector3(det_x, xz * yz - xy * zz, xy * yz - xz * yy)
+	elif abs_y >= abs_z:
+		n = Vector3(xz * yz - xy * zz, det_y, xy * xz - yz * xx)
+	else:
+		n = Vector3(xy * yz - xz * yy, xy * xz - yz * xx, det_z)
+	if n.length_squared() < 1e-24:
+		return {"ok": false}
+	return {"ok": true, "origin": c, "normal": n.normalized()}
 
 
 static func _split_min_poly_area_xy(cell_nodes: Array, i: int, j: int) -> float:
