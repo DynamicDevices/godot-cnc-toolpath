@@ -62,7 +62,7 @@ jobs:
               QRC=${PIPESTATUS[0]}
               set -e
               if grep -E "Parse Error|Failed to load script|DROP_QUALITY_FAIL" "$QOUT"; then
-                echo "::error::Godot drop quality (flat/roof) failure"
+                echo "::error::Godot drop quality (folded/roof) failure"
                 exit 1
               fi
               grep -q "DROP_QUALITY_OK" "$QOUT"
@@ -84,5 +84,5 @@ jobs:
         if: always()
         run: |
           echo "### Godot CI" >> "$GITHUB_STEP_SUMMARY"
-          echo "bake + contact + drop_quality (flat/roof) + **eartip penetration** (\`test_eartip_quality.gd\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "bake + contact + drop_quality (folded/roof) + **eartip penetration** (\`test_eartip_quality.gd\`)" >> "$GITHUB_STEP_SUMMARY"
           echo "Status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
