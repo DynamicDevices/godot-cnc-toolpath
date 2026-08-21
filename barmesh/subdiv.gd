@@ -9,6 +9,8 @@ class Params:
 	var epsilon_m: float = 0.00001
 	var stepover_m: float = 0.001
 	var angle_deg: float = 15.0
+	## Cell: max perpendicular distance of contact points from a fit plane (Julian).
+	var coplanar_tol_m: float = 0.00001
 
 
 enum BarInsertMode {
@@ -69,7 +71,7 @@ static func cell_needs_split(cell_nodes: Array, params: Params) -> bool:
 	if _normals_span_exceeds(normals, params.angle_deg):
 		return true
 	# Contact points not close to coplanar → subdivide.
-	if points.size() >= 4 and not _points_near_coplanar(points, params.epsilon_m):
+	if points.size() >= 4 and not _points_near_coplanar(points, params.coplanar_tol_m):
 		return true
 	return false
 
