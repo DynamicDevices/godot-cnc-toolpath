@@ -42,10 +42,12 @@ static func bar_needs_split(bar: BarMesh.BMBar, params: Params) -> bool:
 	return need_len or need_ang
 
 
-## Face/cell (MakeBarBetweenNodesF) — Julian CNC 127:
+## Face/cell (MakeBarBetweenNodesF) — Julian CNC 127/132:
 ## Prefer largest cells whose contact points stay near-coplanar; shrink XY when
 ## contact normals span a wide range. Connect opposite-side nodes that are not
 ## near-colinear and that avoid narrow slivers.
+## Future (Julian 134): an extra stop-over-subdivide rule will land here as its
+## own predicate so it can be tweaked without touching topology.
 static func cell_needs_split(cell_nodes: Array, params: Params) -> bool:
 	if cell_nodes.size() < 3:
 		return false
