@@ -2,6 +2,7 @@ extends MeshInstance3D
 ## ImmediateMesh draw of CAD Z-up BarMesh. Only this file converts to Godot Y-up.
 
 const BarMeshGD = preload("res://barmesh/barmesh.gd")
+const Subdiv = preload("res://barmesh/subdiv.gd")
 const Contact = preload("res://barmesh/tool_contact.gd")
 
 @export var part_path: NodePath = NodePath("../MeshRoot/Part")
@@ -118,7 +119,7 @@ func _apply_contact(node: BarMesh.BMNode, R: float, tris: Array, z_plane: float)
 
 
 func _refine_barmesh(bm: BarMesh, R: float, tris: Array, z_plane: float, z_above: float, my_run: int) -> void:
-	var params := BarMeshGD.SubdivParams.new()
+	var params := Subdiv.Params.new()
 	params.epsilon_m = epsilon_mm * 0.001
 	params.stepover_m = stepover_mm * 0.001
 	params.angle_deg = angle_deg
@@ -127,7 +128,7 @@ func _refine_barmesh(bm: BarMesh, R: float, tris: Array, z_plane: float, z_above
 			return
 		var batch: Array = []
 		for bar in bm.live_bars():
-			if bm.bar_needs_split(bar, params):
+			if Subdiv.bar_needs_split(bar, params):
 				batch.append(bar)
 		if batch.is_empty() or bm.nodes.size() > 8000:
 			break
@@ -135,12 +136,9 @@ func _refine_barmesh(bm: BarMesh, R: float, tris: Array, z_plane: float, z_above
 			var b: BarMesh.BMBar = bar
 			if b.bbardeleted:
 				continue
-			var mid := Vector3(
-				0.5 * (b.nodeback.p.x + b.nodefore.p.x),
-				0.5 * (b.nodeback.p.y + b.nodefore.p.y),
-				z_above
-			)
-			var node: BarMesh.BMNode = bm.new_node(mid)
+			# Midpoint bisection for now; XY_PLANE_INTERSECT available when we switch.
+			var xy: Vector2 = Subdiv.bar_insert_xy(b, Subdiv.BarInsertMode.XY_MIDPOINT)
+			var node: BarMesh.BMNode = bm.new_node(Vector3(xy.x, xy.y, z_above))
 			_apply_contact(node, R, tris, z_plane)
 			bm.insert_node_into_bar_f(b, node)
 		_draw_barmesh(bm)
