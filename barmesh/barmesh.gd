@@ -201,31 +201,6 @@ func live_bars() -> Array:
 	return out
 
 
-class SubdivParams:
-	## External refine knobs (Julian). Defaults: 0.01 mm, 1 mm, 15°.
-	var epsilon_m: float = 0.00001
-	var stepover_m: float = 0.001
-	var angle_deg: float = 15.0
-
-
-func bar_needs_split(bar: BMBar, params: SubdivParams) -> bool:
-	if bar.bbardeleted:
-		return false
-	var a: Vector3 = bar.nodeback.p
-	var b: Vector3 = bar.nodefore.p
-	var dxy := Vector2(a.x - b.x, a.y - b.y).length()
-	if dxy <= params.epsilon_m:
-		return false
-	var need_len := a.distance_to(b) > params.stepover_m
-	var need_ang := false
-	var na: Vector3 = bar.nodeback.contact_normal
-	var nb: Vector3 = bar.nodefore.contact_normal
-	if na.length_squared() > 0.25 and nb.length_squared() > 0.25:
-		var c := clampf(na.dot(nb), -1.0, 1.0)
-		need_ang = c < cos(deg_to_rad(params.angle_deg))
-	return need_len or need_ang
-
-
 func insert_node_into_bar_f(bar: BMBar, newnode: BMNode) -> BMNode:
 	assert(newnode.p != bar.nodeback.p and newnode.p != bar.nodefore.p)
 	assert(newnode in nodes)
