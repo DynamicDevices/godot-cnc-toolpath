@@ -72,7 +72,7 @@ script = ExtResource("6")
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 400.0
-offset_bottom = 420.0
+offset_bottom = 520.0
 
 [node name="VBox" type="VBoxContainer" parent="ToolpathUI/Panel"]
 layout_mode = 2
@@ -155,6 +155,21 @@ text = "Debug folded 2-tris (dihedral)"
 [node name="Bake" type="Button" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
 text = "Build tool surface"
+
+[node name="CellSplitLabel" type="Label" parent="ToolpathUI/Panel/VBox"]
+layout_mode = 2
+text = "Next cell splits"
+
+[node name="CellSplitCount" type="SpinBox" parent="ToolpathUI/Panel/VBox"]
+layout_mode = 2
+min_value = 1.0
+max_value = 200.0
+step = 1.0
+value = 10.0
+
+[node name="CellSplit" type="Button" parent="ToolpathUI/Panel/VBox"]
+layout_mode = 2
+text = "Subdivide next N cells"
 
 [node name="Status" type="Label" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
