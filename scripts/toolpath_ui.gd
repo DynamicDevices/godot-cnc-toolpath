@@ -29,7 +29,8 @@ func _ready() -> void:
 	stepover.visible = true
 	stepover_label.text = "Stepover (mm)"
 	stepover.min_value = 0.1
-	stepover.value = 1.0
+	stepover.value = 6.0
+	tool_radius.value = 5.0
 	z_stepdown_label.visible = true
 	z_stepdown.visible = true
 	z_stepdown_label.text = "Normal angle (deg)"

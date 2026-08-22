@@ -14,7 +14,7 @@ func _ready() -> void:
 	if ui and ui.has_signal("bake_requested"):
 		ui.bake_requested.connect(_on_bake_requested)
 	if DisplayServer.get_name() != "headless":
-		call_deferred("_on_bake_requested", "barmesh", 1.5, 1.0, 0.01, 15.0)
+		call_deferred("_on_bake_requested", "barmesh", 5.0, 6.0, 0.01, 15.0)
 
 
 func _on_bake_requested(
@@ -29,8 +29,8 @@ func _on_bake_requested(
 
 func bake_strategy(
 	strategy: String,
-	tool_radius_mm: float = 1.5,
-	stepover_mm: float = 1.0,
+	tool_radius_mm: float = 5.0,
+	stepover_mm: float = 6.0,
 	epsilon_mm: float = 0.01,
 	angle_deg: float = 15.0
 ) -> Dictionary:
