@@ -123,6 +123,7 @@ func _refine_barmesh(bm: BarMesh, R: float, tris: Array, z_plane: float, z_above
 	params.epsilon_m = epsilon_mm * 0.001
 	params.stepover_m = stepover_mm * 0.001
 	params.angle_deg = angle_deg
+	params.coplanar_tol_m = epsilon_mm * 0.001
 	for _pass in range(max_refine_passes):
 		if my_run != _run_id:
 			return
@@ -141,6 +142,34 @@ func _refine_barmesh(bm: BarMesh, R: float, tris: Array, z_plane: float, z_above
 			var node: BarMesh.BMNode = bm.new_node(Vector3(xy.x, xy.y, z_above))
 			_apply_contact(node, R, tris, z_plane)
 			bm.insert_node_into_bar_f(b, node)
+		_draw_barmesh(bm)
+		if row_delay_s > 0.0:
+			await get_tree().create_timer(row_delay_s).timeout
+	# Cells after bars (Julian 144): worst planar residual → MakeBarBetweenNodesF.
+	await _refine_cells(bm, params, my_run)
+
+
+func _refine_cells(bm: BarMesh, params: Subdiv.Params, my_run: int) -> void:
+	for _pass in range(max_refine_passes):
+		if my_run != _run_id:
+			return
+		if bm.nodes.size() > 8000:
+			break
+		var worst: Dictionary = Subdiv.find_worst_cell_seed(bm, params)
+		if not bool(worst.get("ok", false)):
+			break
+		var pick: Dictionary = Subdiv.pick_cell_split_for_make_bar(worst["nodes"], worst["bars"], params)
+		if not bool(pick.get("ok", false)):
+			break
+		var n1: BarMesh.BMNode = pick["node1"]
+		var n2: BarMesh.BMNode = pick["node2"]
+		var b1: BarMesh.BMBar = pick["bar1"]
+		var b2: BarMesh.BMBar = pick["bar2"]
+		if b1.bbardeleted or b2.bbardeleted:
+			break
+		if bm.d_test_colinearity_f(n1, b1, n2, b2) or bm.d_test_colinearity_f(n2, b2, n1, b1):
+			break
+		bm.make_bar_between_nodes_f(n1, b1, n2, b2)
 		_draw_barmesh(bm)
 		if row_delay_s > 0.0:
 			await get_tree().create_timer(row_delay_s).timeout

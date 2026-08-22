@@ -201,6 +201,70 @@ func live_bars() -> Array:
 	return out
 
 
+## Right-hand cell ring of seed (Julian: GetBarBackRight walk). {ok, nodes, bars}.
+func cell_ring_right(seed: BMBar) -> Dictionary:
+	if seed == null or seed.bbardeleted or seed.barforeright == null:
+		return {"ok": false}
+	var ring_bars: Array = []
+	var ring_nodes: Array = [seed.nodeback]
+	var at: BMNode = seed.nodeback
+	var cur: BMBar = seed
+	for _i in range(1000):
+		ring_bars.append(cur)
+		var bfore := cur.nodeback == at
+		at = cur.get_node_fore(bfore)
+		if at == seed.nodeback:
+			if ring_nodes.size() < 3:
+				return {"ok": false}
+			return {"ok": true, "nodes": ring_nodes, "bars": ring_bars, "seed": seed}
+		ring_nodes.append(at)
+		cur = cur.get_fore_right_bl(bfore)
+		if cur == null or cur.bbardeleted:
+			return {"ok": false}
+	return {"ok": false}
+
+
+func d_test_colinearity_f(node1: BMNode, bar1: BMBar, node2: BMNode, _bar2: BMBar) -> bool:
+	var bar1a: BMBar = bar1.get_fore_right_bl(bar1.nodefore == node1)
+	if bar1a == null:
+		return false
+	var lbar: BMBar = bar1a
+	var lnode: BMNode = bar1a.get_node_fore(bar1a.nodeback == node1)
+	if lnode == node2:
+		return true
+	var ref: Vector3 = bar1a.barvecN
+	for _i in range(1000):
+		if lnode == node1:
+			return false
+		lbar = lbar.get_fore_right_bl(lbar.nodefore == lnode)
+		if lbar == null:
+			return false
+		lnode = lbar.get_node_fore(lbar.nodeback == lnode)
+		if lbar.barvecN != ref and lbar.barvecN != -ref:
+			return false
+		if lnode == node2:
+			return true
+	return false
+
+
+## Insert a bar across a cell between node1 and node2 (vendor MakeBarBetweenNodesF).
+func make_bar_between_nodes_f(node1: BMNode, bar1: BMBar, node2: BMNode, bar2: BMBar) -> BMBar:
+	assert(not bar1.bbardeleted and not bar2.bbardeleted)
+	assert(node1.i < node2.i)
+	assert(not d_test_colinearity_f(node1, bar1, node2, bar2))
+	assert(not d_test_colinearity_f(node2, bar2, node1, bar1))
+	var bar1a: BMBar = bar1.get_fore_right_bl(bar1.nodefore == node1)
+	var bar2a: BMBar = bar2.get_fore_right_bl(bar2.nodefore == node2)
+	assert(bar1a != null and bar2a != null)
+	var newbar := BMBar.new(node1, node2)
+	newbar.set_fore_right_bl(false, bar1a)
+	newbar.set_fore_right_bl(true, bar2a)
+	bar1.set_fore_right_bl(bar1.nodefore == node1, newbar)
+	bar2.set_fore_right_bl(bar2.nodefore == node2, newbar)
+	bars.append(newbar)
+	return newbar
+
+
 func insert_node_into_bar_f(bar: BMBar, newnode: BMNode) -> BMNode:
 	assert(newnode.p != bar.nodeback.p and newnode.p != bar.nodefore.p)
 	assert(newnode in nodes)

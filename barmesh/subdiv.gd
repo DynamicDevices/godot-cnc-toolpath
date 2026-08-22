@@ -42,12 +42,9 @@ static func bar_needs_split(bar: BarMesh.BMBar, params: Params) -> bool:
 	return need_len or need_ang
 
 
-## Face/cell (MakeBarBetweenNodesF) — Julian CNC 127/132:
-## Prefer largest cells whose contact points stay near-coplanar; shrink XY when
-## contact normals span a wide range. Connect opposite-side nodes that are not
-## near-colinear and that avoid narrow slivers.
-## Future (Julian 134): an extra stop-over-subdivide rule will land here as its
-## own predicate so it can be tweaked without touching topology.
+## Face/cell (MakeBarBetweenNodesF) — Julian CNC 127/132/144:
+## Split when avg-normal/avg-point plane residual > coplanar_tol, or contact-normal
+## span > a (and XY > ε). Future anti-over-subdivide rule stays separate here.
 static func cell_needs_split(cell_nodes: Array, params: Params) -> bool:
 	if cell_nodes.size() < 3:
 		return false
@@ -55,63 +52,163 @@ static func cell_needs_split(cell_nodes: Array, params: Params) -> bool:
 	var xmax := -INF
 	var ymin := INF
 	var ymax := -INF
-	var normals: Array[Vector3] = []
-	var points: Array[Vector3] = []
 	for n in cell_nodes:
 		var node: BarMesh.BMNode = n
 		xmin = minf(xmin, node.p.x)
 		xmax = maxf(xmax, node.p.x)
 		ymin = minf(ymin, node.p.y)
 		ymax = maxf(ymax, node.p.y)
-		if node.contact_normal.length_squared() > 0.25:
-			normals.append(node.contact_normal.normalized())
-		if node.contact_point != Vector3.ZERO or node.contact_kind != BarMesh.BMNode.ContactFeature.NONE:
-			points.append(node.contact_point)
-	var dxy := maxf(xmax - xmin, ymax - ymin)
-	if dxy <= params.epsilon_m:
+	if maxf(xmax - xmin, ymax - ymin) <= params.epsilon_m:
 		return false
-	# Wide normal range → keep this cell from staying large in XY.
-	if _normals_span_exceeds(normals, params.angle_deg):
+	if cell_planar_residual(cell_nodes) > params.coplanar_tol_m:
 		return true
-	# Contact points not close to coplanar → subdivide.
-	if points.size() >= 4 and not _points_near_coplanar(points, params.coplanar_tol_m):
-		return true
-	return false
+	var normals: Array[Vector3] = []
+	for n2 in cell_nodes:
+		var nd: BarMesh.BMNode = n2
+		if nd.contact_normal.length_squared() > 0.25:
+			normals.append(nd.contact_normal.normalized())
+	return _normals_span_exceeds(normals, params.angle_deg)
 
 
-## Among candidate opposite-side node pairs, pick one that is not near-colinear
-## with a cell edge and that maximises the smaller of the two resulting face
-## areas (sliver avoidance). Returns [node_a, node_b] or empty.
-static func pick_cell_split_pair(cell_nodes: Array, params: Params) -> Array:
-	var n: int = cell_nodes.size()
-	if n < 4:
-		return []
-	var best: Array = []
-	var best_score := -INF
-	var cos_colin := cos(deg_to_rad(maxf(180.0 - params.angle_deg, 1.0)))
+## Julian 144: plane through avg(contact_points) with normal avg(contact_normals);
+## residual = max |⊥ distance|. Three points → 0 if normals define a plane.
+static func cell_planar_residual(cell_nodes: Array) -> float:
+	if cell_nodes.size() <= 3:
+		return 0.0
+	var c := Vector3.ZERO
+	var nsum := Vector3.ZERO
+	var n_pts := 0
+	var n_nrm := 0
+	for n in cell_nodes:
+		var node: BarMesh.BMNode = n
+		if node.contact_kind != BarMesh.BMNode.ContactFeature.NONE:
+			c += node.contact_point
+			n_pts += 1
+		if node.contact_normal.length_squared() > 0.25:
+			nsum += node.contact_normal.normalized()
+			n_nrm += 1
+	if n_pts < 3 or n_nrm < 1 or nsum.length_squared() < 1e-12:
+		return 0.0
+	c /= float(n_pts)
+	var normal: Vector3 = nsum.normalized()
+	var worst := 0.0
+	for n2 in cell_nodes:
+		var node2: BarMesh.BMNode = n2
+		if node2.contact_kind == BarMesh.BMNode.ContactFeature.NONE:
+			continue
+		worst = maxf(worst, absf(normal.dot(node2.contact_point - c)))
+	return worst
+
+
+## Unique right-hand cells (one seed bar each). Dedupes so bars > cells.
+static func unique_cell_seeds(bm: BarMesh) -> Array:
+	var seen: Dictionary = {}
+	var seeds: Array = []
+	for bar in bm.live_bars():
+		var ring: Dictionary = bm.cell_ring_right(bar)
+		if not bool(ring.get("ok", false)):
+			continue
+		var key := _cell_key(ring["nodes"])
+		if seen.has(key):
+			continue
+		seen[key] = true
+		seeds.append(bar)
+	return seeds
+
+
+## Cell farthest from its avg-normal/avg-point plane (among those needing split).
+static func find_worst_cell_seed(bm: BarMesh, params: Params) -> Dictionary:
+	var worst: Dictionary = {"ok": false, "residual": -1.0}
+	for seed in unique_cell_seeds(bm):
+		var ring: Dictionary = bm.cell_ring_right(seed)
+		if not bool(ring.get("ok", false)):
+			continue
+		var nodes: Array = ring["nodes"]
+		if not cell_needs_split(nodes, params):
+			continue
+		var r: float = cell_planar_residual(nodes)
+		if bool(worst.get("ok", false)) and r <= float(worst["residual"]):
+			continue
+		worst = {
+			"ok": true,
+			"seed": seed,
+			"nodes": nodes,
+			"bars": ring["bars"],
+			"residual": r,
+		}
+	return worst
+
+
+## Pick node/bar pair for MakeBarBetweenNodesF that minimises max child planar residual.
+static func pick_cell_split_for_make_bar(ring_nodes: Array, ring_bars: Array, params: Params) -> Dictionary:
+	var n: int = ring_nodes.size()
+	if n < 4 or ring_bars.size() != n:
+		return {"ok": false}
+	var best: Dictionary = {"ok": false, "score": INF}
 	for i in n:
-		# Opposite-ish: about halfway around the ring.
-		var j := (i + n / 2) % n
-		if j == i:
-			continue
-		var a: BarMesh.BMNode = cell_nodes[i]
-		var b: BarMesh.BMNode = cell_nodes[j]
-		var ab := Vector2(b.p.x - a.p.x, b.p.y - a.p.y)
-		if ab.length() <= params.epsilon_m:
-			continue
-		var abn := ab.normalized()
-		# Reject if nearly colinear with either adjacent edge at a or b.
-		var prev_a: BarMesh.BMNode = cell_nodes[(i - 1 + n) % n]
-		var next_a: BarMesh.BMNode = cell_nodes[(i + 1) % n]
-		if _edge_dir_xy(prev_a, a).dot(abn) > cos_colin:
-			continue
-		if _edge_dir_xy(a, next_a).dot(abn) > cos_colin:
-			continue
-		var area_score := _split_min_poly_area_xy(cell_nodes, i, j)
-		if area_score > best_score:
-			best_score = area_score
-			best = [a, b]
+		for j in range(i + 2, n):
+			# Skip adjacent wrap (i=0,j=n-1).
+			if i == 0 and j == n - 1:
+				continue
+			if (j - i) < 2 or (n - (j - i)) < 2:
+				continue
+			var a: BarMesh.BMNode = ring_nodes[i]
+			var b: BarMesh.BMNode = ring_nodes[j]
+			if Vector2(b.p.x - a.p.x, b.p.y - a.p.y).length() <= params.epsilon_m:
+				continue
+			var left: Array = _ring_slice(ring_nodes, i, j)
+			var right: Array = _ring_slice(ring_nodes, j, i)
+			var score: float = maxf(cell_planar_residual(left), cell_planar_residual(right))
+			# Mild sliver guard: reject tiny min face area.
+			if _split_min_poly_area_xy(ring_nodes, i, j) < params.epsilon_m * params.epsilon_m:
+				continue
+			if score < float(best.get("score", INF)):
+				var bar_a: BarMesh.BMBar = ring_bars[(i - 1 + n) % n]
+				var bar_b: BarMesh.BMBar = ring_bars[(j - 1 + n) % n]
+				var n1: BarMesh.BMNode = a
+				var n2: BarMesh.BMNode = b
+				var b1: BarMesh.BMBar = bar_a
+				var b2: BarMesh.BMBar = bar_b
+				if n2.i < n1.i:
+					var tn = n1
+					n1 = n2
+					n2 = tn
+					var tb = b1
+					b1 = b2
+					b2 = tb
+				best = {
+					"ok": true,
+					"score": score,
+					"node1": n1,
+					"bar1": b1,
+					"node2": n2,
+					"bar2": b2,
+				}
 	return best
+
+
+static func _cell_key(nodes: Array) -> String:
+	var ids: Array = []
+	for n in nodes:
+		var node: BarMesh.BMNode = n
+		ids.append(node.i)
+	ids.sort()
+	var parts := PackedStringArray()
+	for id in ids:
+		parts.append(str(id))
+	return ",".join(parts)
+
+
+static func _ring_slice(nodes: Array, i: int, j: int) -> Array:
+	var out: Array = []
+	var n: int = nodes.size()
+	var k := i
+	while true:
+		out.append(nodes[k])
+		if k == j:
+			break
+		k = (k + 1) % n
+	return out
 
 
 static func _edge_dir_xy(a: BarMesh.BMNode, b: BarMesh.BMNode) -> Vector2:
