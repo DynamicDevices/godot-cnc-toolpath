@@ -42,12 +42,10 @@ static func bar_needs_split(bar: BarMesh.BMBar, params: Params) -> bool:
 	return need_len or need_ang
 
 
-## Face/cell (MakeBarBetweenNodesF) — Julian CNC 127/132/144:
-## Split when avg-normal/avg-point plane residual > coplanar_tol, or contact-normal
-## span > a (and XY > ε). Future anti-over-subdivide rule stays separate here.
-static func cell_needs_split(cell_nodes: Array, params: Params) -> bool:
+## XY extent too small to subdivide further (Julian 156: stop when area too small).
+static func cell_xy_too_small(cell_nodes: Array, params: Params) -> bool:
 	if cell_nodes.size() < 3:
-		return false
+		return true
 	var xmin := INF
 	var xmax := -INF
 	var ymin := INF
@@ -58,9 +56,16 @@ static func cell_needs_split(cell_nodes: Array, params: Params) -> bool:
 		xmax = maxf(xmax, node.p.x)
 		ymin = minf(ymin, node.p.y)
 		ymax = maxf(ymax, node.p.y)
-	if maxf(xmax - xmin, ymax - ymin) <= params.epsilon_m:
+	return maxf(xmax - xmin, ymax - ymin) <= params.epsilon_m
+
+
+## Face/cell (MakeBarBetweenNodesF) — Julian CNC 127/132/144/155:
+## Split when planar tolerance > coplanar_tol, or contact-normal span > a
+## (and not XY-too-small). Prefer cell_planar_tolerance() for ranking, not this bool.
+static func cell_needs_split(cell_nodes: Array, params: Params) -> bool:
+	if cell_xy_too_small(cell_nodes, params):
 		return false
-	if cell_planar_residual(cell_nodes) > params.coplanar_tol_m:
+	if cell_planar_tolerance(cell_nodes) > params.coplanar_tol_m:
 		return true
 	var normals: Array[Vector3] = []
 	for n2 in cell_nodes:
@@ -68,6 +73,12 @@ static func cell_needs_split(cell_nodes: Array, params: Params) -> bool:
 		if nd.contact_normal.length_squared() > 0.25:
 			normals.append(nd.contact_normal.normalized())
 	return _normals_span_exceeds(normals, params.angle_deg)
+
+
+## Julian 155: continuous planar tolerance for worst-first priority (not binary).
+## Alias of residual — max |⊥ distance| to avg-normal / avg-point plane.
+static func cell_planar_tolerance(cell_nodes: Array) -> float:
+	return cell_planar_residual(cell_nodes)
 
 
 ## Julian 144: plane through avg(contact_points) with normal avg(contact_normals);
@@ -116,7 +127,8 @@ static func unique_cell_seeds(bm: BarMesh) -> Array:
 	return seeds
 
 
-## Cell farthest from its avg-normal/avg-point plane (among those needing split).
+## Cell with worst planar tolerance among those that still need a split (Julian 155).
+## Rank by continuous tolerance; do not use a binary gate for ordering.
 static func find_worst_cell_seed(bm: BarMesh, params: Params) -> Dictionary:
 	var worst: Dictionary = {"ok": false, "residual": -1.0}
 	for seed in unique_cell_seeds(bm):
@@ -124,9 +136,19 @@ static func find_worst_cell_seed(bm: BarMesh, params: Params) -> Dictionary:
 		if not bool(ring.get("ok", false)):
 			continue
 		var nodes: Array = ring["nodes"]
-		if not cell_needs_split(nodes, params):
+		if cell_xy_too_small(nodes, params):
 			continue
-		var r: float = cell_planar_residual(nodes)
+		var r: float = cell_planar_tolerance(nodes)
+		var needs := r > params.coplanar_tol_m
+		if not needs:
+			var normals: Array[Vector3] = []
+			for n2 in nodes:
+				var nd: BarMesh.BMNode = n2
+				if nd.contact_normal.length_squared() > 0.25:
+					normals.append(nd.contact_normal.normalized())
+			needs = _normals_span_exceeds(normals, params.angle_deg)
+		if not needs:
+			continue
 		if bool(worst.get("ok", false)) and r <= float(worst["residual"]):
 			continue
 		worst = {
