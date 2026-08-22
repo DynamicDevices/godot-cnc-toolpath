@@ -150,7 +150,7 @@ text = "Orthographic camera"
 
 [node name="DebugFlatMesh" type="CheckBox" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
-text = "Debug flat mesh (2 tris)"
+text = "Debug folded 2-tris (dihedral)"
 
 [node name="Bake" type="Button" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
