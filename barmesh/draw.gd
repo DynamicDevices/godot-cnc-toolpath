@@ -25,6 +25,9 @@ var _run_id: int = 0
 var _last_bm: BarMesh
 var _last_tris: Array = []
 var _last_params: Subdiv.Params
+var _last_R: float = 0.005
+var _last_z_plane: float = 0.0
+var _last_z_above: float = 0.0
 var _normals_mi: MeshInstance3D
 
 
@@ -87,6 +90,9 @@ func play_over_part(p_radius: float = -1.0) -> void:
 	var z_above: float = cad["zmax"] + R + pad_m
 	var z_plane: float = cad["zmin"]
 	_last_tris = tris
+	_last_R = R
+	_last_z_plane = z_plane
+	_last_z_above = z_above
 	var bm := BarMeshGD.new()
 	bm.start_rect_bar_mesh(xpart, ypart, z_above)
 	var more := true
@@ -209,8 +215,31 @@ func _try_one_cell_split(bm: BarMesh, params: Subdiv.Params) -> bool:
 		return false
 	if bm.d_test_colinearity_f(n1, b1, n2, b2) or bm.d_test_colinearity_f(n2, b2, n1, b1):
 		return false
-	bm.make_bar_between_nodes_f(n1, b1, n2, b2)
+	# Julian 156: new bar must be subdivided to tolerance after insert.
+	var newbar: BarMesh.BMBar = bm.make_bar_between_nodes_f(n1, b1, n2, b2)
+	_subdivide_bar_to_tolerance(bm, newbar, params)
 	return true
+
+
+## Bisect a live bar (and its children) until bar_needs_split is false (Julian 156).
+func _subdivide_bar_to_tolerance(bm: BarMesh, seed: BarMesh.BMBar, params: Subdiv.Params) -> void:
+	var queue: Array = [seed]
+	var guard := 0
+	while not queue.is_empty() and guard < 64 and bm.nodes.size() <= 8000:
+		guard += 1
+		var bar: BarMesh.BMBar = queue.pop_back()
+		if bar == null or bar.bbardeleted:
+			continue
+		if not Subdiv.bar_needs_split(bar, params):
+			continue
+		var xy: Vector2 = Subdiv.bar_insert_xy(bar, Subdiv.BarInsertMode.XY_MIDPOINT)
+		var node: BarMesh.BMNode = bm.new_node(Vector3(xy.x, xy.y, _last_z_above))
+		_apply_contact(node, _last_R, _last_tris, _last_z_plane)
+		bm.insert_node_into_bar_f(bar, node)
+		# insert deletes `bar` and appends barback + barfore as the last two.
+		if bm.bars.size() >= 2:
+			queue.append(bm.bars[bm.bars.size() - 2])
+			queue.append(bm.bars[bm.bars.size() - 1])
 
 
 func _grid_parts(lo: float, hi: float) -> int:
