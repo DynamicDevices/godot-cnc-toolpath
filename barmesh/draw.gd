@@ -14,6 +14,8 @@ const Contact = preload("res://barmesh/tool_contact.gd")
 @export var stepover_mm: float = 6.0
 @export var angle_deg: float = 15.0
 @export var max_refine_passes: int = 12
+## Auto cell splits after bar refine. Interactive default 0 (Julian 149: button + N).
+@export var auto_cell_refine_passes: int = 0
 @export var show_bars: bool = true
 @export var show_normals: bool = true
 @export var include_base_plane: bool = true
@@ -22,6 +24,7 @@ var _playing: bool = false
 var _run_id: int = 0
 var _last_bm: BarMesh
 var _last_tris: Array = []
+var _last_params: Subdiv.Params
 var _normals_mi: MeshInstance3D
 
 
@@ -57,6 +60,8 @@ func _ready() -> void:
 	add_child(_normals_mi)
 	if DisplayServer.get_name() == "headless":
 		row_delay_s = 0.0
+		# CI still needs progressive cell splits without a UI.
+		auto_cell_refine_passes = max_refine_passes
 	call_deferred("play_over_part")
 
 
@@ -145,34 +150,67 @@ func _refine_barmesh(bm: BarMesh, R: float, tris: Array, z_plane: float, z_above
 		_draw_barmesh(bm)
 		if row_delay_s > 0.0:
 			await get_tree().create_timer(row_delay_s).timeout
-	# Cells after bars (Julian 144): worst planar residual → MakeBarBetweenNodesF.
-	await _refine_cells(bm, params, my_run)
+	_last_params = params
+	# Cells after bars (Julian 144/149): optional auto; interactive uses button + N.
+	await _refine_cells(bm, params, my_run, auto_cell_refine_passes)
 
 
-func _refine_cells(bm: BarMesh, params: Subdiv.Params, my_run: int) -> void:
-	for _pass in range(max_refine_passes):
+## Split up to `count` worst out-of-tolerance cells (Julian CNC 149).
+func subdivide_next_cells(count: int) -> int:
+	if _playing or _last_bm == null or count <= 0:
+		return 0
+	var params: Subdiv.Params = _last_params
+	if params == null:
+		params = _make_params()
+		_last_params = params
+	var done := 0
+	for _i in range(count):
+		if not _try_one_cell_split(_last_bm, params):
+			break
+		done += 1
+		_draw_barmesh(_last_bm)
+	return done
+
+
+func _make_params() -> Subdiv.Params:
+	var params := Subdiv.Params.new()
+	params.epsilon_m = epsilon_mm * 0.001
+	params.stepover_m = stepover_mm * 0.001
+	params.angle_deg = angle_deg
+	params.coplanar_tol_m = epsilon_mm * 0.001
+	return params
+
+
+func _refine_cells(bm: BarMesh, params: Subdiv.Params, my_run: int, passes: int) -> void:
+	for _pass in range(maxi(passes, 0)):
 		if my_run != _run_id:
 			return
-		if bm.nodes.size() > 8000:
+		if not _try_one_cell_split(bm, params):
 			break
-		var worst: Dictionary = Subdiv.find_worst_cell_seed(bm, params)
-		if not bool(worst.get("ok", false)):
-			break
-		var pick: Dictionary = Subdiv.pick_cell_split_for_make_bar(worst["nodes"], worst["bars"], params)
-		if not bool(pick.get("ok", false)):
-			break
-		var n1: BarMesh.BMNode = pick["node1"]
-		var n2: BarMesh.BMNode = pick["node2"]
-		var b1: BarMesh.BMBar = pick["bar1"]
-		var b2: BarMesh.BMBar = pick["bar2"]
-		if b1.bbardeleted or b2.bbardeleted:
-			break
-		if bm.d_test_colinearity_f(n1, b1, n2, b2) or bm.d_test_colinearity_f(n2, b2, n1, b1):
-			break
-		bm.make_bar_between_nodes_f(n1, b1, n2, b2)
 		_draw_barmesh(bm)
 		if row_delay_s > 0.0:
 			await get_tree().create_timer(row_delay_s).timeout
+
+
+func _try_one_cell_split(bm: BarMesh, params: Subdiv.Params) -> bool:
+	if bm.nodes.size() > 8000:
+		return false
+	var worst: Dictionary = Subdiv.find_worst_cell_seed(bm, params)
+	if not bool(worst.get("ok", false)):
+		return false
+	var pick: Dictionary = Subdiv.pick_cell_split_for_make_bar(worst["nodes"], worst["bars"], params)
+	if not bool(pick.get("ok", false)):
+		return false
+	var n1: BarMesh.BMNode = pick["node1"]
+	var n2: BarMesh.BMNode = pick["node2"]
+	var b1: BarMesh.BMBar = pick["bar1"]
+	var b2: BarMesh.BMBar = pick["bar2"]
+	if b1.bbardeleted or b2.bbardeleted:
+		return false
+	if bm.d_test_colinearity_f(n1, b1, n2, b2) or bm.d_test_colinearity_f(n2, b2, n1, b1):
+		return false
+	bm.make_bar_between_nodes_f(n1, b1, n2, b2)
+	return true
 
 
 func _grid_parts(lo: float, hi: float) -> int:

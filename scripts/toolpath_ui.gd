@@ -8,6 +8,7 @@ signal bake_requested(
 	sample_step: float,
 	z_stepdown: float
 )
+signal cell_subdivide_requested(count: int)
 
 @onready var strategy: OptionButton = $Panel/VBox/Strategy
 @onready var tool_radius: SpinBox = $Panel/VBox/ToolRadius
@@ -16,6 +17,7 @@ signal bake_requested(
 @onready var sample_step: SpinBox = $Panel/VBox/SampleStep
 @onready var z_stepdown_label: Label = $Panel/VBox/ZStepdownLabel
 @onready var z_stepdown: SpinBox = $Panel/VBox/ZStepdown
+@onready var cell_split_count: SpinBox = $Panel/VBox/CellSplitCount
 @onready var status: Label = $Panel/VBox/Status
 
 func _ready() -> void:
@@ -45,8 +47,13 @@ func _ready() -> void:
 	sample_step.value = 0.01
 	$Panel/VBox/Title.text = "Tool surface (CAD Z-up)"
 	$Panel/VBox/Bake.text = "Build tool surface"
-	status.text = "BarMesh refine: epsilon / stepover / angle."
+	status.text = "BarMesh refine: epsilon / stepover / angle. Cell splits: button."
 	$Panel/VBox/Bake.pressed.connect(_on_bake)
+	cell_split_count.min_value = 1
+	cell_split_count.max_value = 200
+	cell_split_count.step = 1
+	cell_split_count.value = 10
+	$Panel/VBox/CellSplit.pressed.connect(_on_cell_split)
 	var bars := $Panel/VBox/ShowBars as CheckBox
 	var norms := $Panel/VBox/ShowNormals as CheckBox
 	var ortho := $Panel/VBox/Ortho as CheckBox
@@ -89,6 +96,13 @@ func _preview() -> Node:
 func _on_bake() -> void:
 	status.text = "Building…"
 	bake_requested.emit("barmesh", tool_radius.value, stepover.value, sample_step.value, z_stepdown.value)
+
+
+func _on_cell_split() -> void:
+	var n := int(cell_split_count.value)
+	status.text = "Subdividing next %d cells…" % n
+	cell_subdivide_requested.emit(n)
+
 
 func set_status(text: String) -> void:
 	status.text = text

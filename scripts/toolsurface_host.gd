@@ -13,6 +13,8 @@ func _ready() -> void:
 	var ui := get_node_or_null(ui_path)
 	if ui and ui.has_signal("bake_requested"):
 		ui.bake_requested.connect(_on_bake_requested)
+	if ui and ui.has_signal("cell_subdivide_requested"):
+		ui.cell_subdivide_requested.connect(_on_cell_subdivide_requested)
 	if DisplayServer.get_name() != "headless":
 		call_deferred("_on_bake_requested", "barmesh", 5.0, 6.0, 0.01, 15.0)
 
@@ -25,6 +27,21 @@ func _on_bake_requested(
 	angle_deg: float
 ) -> void:
 	await bake_strategy("barmesh", tool_radius_mm, stepover_mm, epsilon_mm, angle_deg)
+
+
+func _on_cell_subdivide_requested(count: int) -> void:
+	var ui := get_node_or_null(ui_path)
+	var viz := get_node_or_null(barmesh_preview_path)
+	if viz == null or not viz.has_method("subdivide_next_cells"):
+		if ui:
+			ui.set_status("No BarMesh to subdivide yet.")
+		return
+	var done: int = int(viz.subdivide_next_cells(count))
+	if ui:
+		if done <= 0:
+			ui.set_status("No more out-of-tolerance cells to split.")
+		else:
+			ui.set_status("Split %d cell(s)." % done)
 
 
 func bake_strategy(
