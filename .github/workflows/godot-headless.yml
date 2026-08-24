@@ -78,11 +78,22 @@ jobs:
               fi
               grep -q "EARTIP_QUALITY_OK" "$EOUT"
               [ "$ERC" -eq 0 ]
+              POUT=$(mktemp)
+              set +e
+              godot --headless --path /src -s res://tools/test_planar_residual.gd 2>&1 | tee "$POUT"
+              PRC=${PIPESTATUS[0]}
+              set -e
+              if grep -E "Parse Error|Failed to load script|PLANAR_FAIL" "$POUT"; then
+                echo "::error::Godot planar residual (CL vs contact) failure"
+                exit 1
+              fi
+              grep -q "PLANAR_OK" "$POUT"
+              [ "$PRC" -eq 0 ]
             '
 
       - name: Summarize
         if: always()
         run: |
           echo "### Godot CI" >> "$GITHUB_STEP_SUMMARY"
-          echo "bake + contact + drop_quality (folded/roof) + **eartip penetration** (\`test_eartip_quality.gd\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "bake + contact + drop_quality + eartip + **planar residual CL** (\`test_planar_residual.gd\`)" >> "$GITHUB_STEP_SUMMARY"
           echo "Status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"

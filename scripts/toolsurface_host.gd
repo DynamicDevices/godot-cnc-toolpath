@@ -16,7 +16,7 @@ func _ready() -> void:
 	if ui and ui.has_signal("cell_subdivide_requested"):
 		ui.cell_subdivide_requested.connect(_on_cell_subdivide_requested)
 	if DisplayServer.get_name() != "headless":
-		call_deferred("_on_bake_requested", "barmesh", 5.0, 6.0, 0.01, 15.0)
+		call_deferred("_on_bake_requested", "barmesh", 5.0, 6.0, 0.01, 15.0, 0.01)
 
 
 func _on_bake_requested(
@@ -24,9 +24,10 @@ func _on_bake_requested(
 	tool_radius_mm: float,
 	stepover_mm: float,
 	epsilon_mm: float,
-	angle_deg: float
+	angle_deg: float,
+	planar_tol_mm: float = 0.01
 ) -> void:
-	await bake_strategy("barmesh", tool_radius_mm, stepover_mm, epsilon_mm, angle_deg)
+	await bake_strategy("barmesh", tool_radius_mm, stepover_mm, epsilon_mm, angle_deg, planar_tol_mm)
 
 
 func _on_cell_subdivide_requested(count: int) -> void:
@@ -49,7 +50,8 @@ func bake_strategy(
 	tool_radius_mm: float = 5.0,
 	stepover_mm: float = 6.0,
 	epsilon_mm: float = 0.01,
-	angle_deg: float = 15.0
+	angle_deg: float = 15.0,
+	planar_tol_mm: float = 0.01
 ) -> Dictionary:
 	if strategy != "barmesh":
 		push_error("Toolpaths archived; only barmesh/toolsurface is active: " + strategy)
@@ -76,6 +78,7 @@ func bake_strategy(
 		viz.stepover_mm = stepover_mm
 		viz.epsilon_mm = epsilon_mm
 		viz.angle_deg = angle_deg
+		viz.planar_tol_mm = planar_tol_mm
 	await viz.play_over_part(tool_radius)
 	if ui:
 		ui.set_status("BarMesh tool-contact lattice (CAD Z-up).")
