@@ -81,33 +81,30 @@ static func cell_planar_tolerance(cell_nodes: Array) -> float:
 	return cell_planar_residual(cell_nodes)
 
 
-## Julian 144: plane through avg(contact_points) with normal avg(contact_normals);
-## residual = max |⊥ distance|. Three points → 0 if normals define a plane.
+## Julian 144/162: plane through avg(CL points = node.p) with normal
+## avg(contact_normals); residual = max |⊥ distance| of those CL points.
+## Use tool centres, not contact_point — valley cells can look flat on the
+## part while the CL lattice is badly warped (msg 162).
 static func cell_planar_residual(cell_nodes: Array) -> float:
-	if cell_nodes.size() <= 3:
+	if cell_nodes.size() < 4:
 		return 0.0
 	var c := Vector3.ZERO
 	var nsum := Vector3.ZERO
-	var n_pts := 0
 	var n_nrm := 0
 	for n in cell_nodes:
 		var node: BarMesh.BMNode = n
-		if node.contact_kind != BarMesh.BMNode.ContactFeature.NONE:
-			c += node.contact_point
-			n_pts += 1
+		c += node.p
 		if node.contact_normal.length_squared() > 0.25:
 			nsum += node.contact_normal.normalized()
 			n_nrm += 1
-	if n_pts < 3 or n_nrm < 1 or nsum.length_squared() < 1e-12:
+	if n_nrm < 1 or nsum.length_squared() < 1e-12:
 		return 0.0
-	c /= float(n_pts)
+	c /= float(cell_nodes.size())
 	var normal: Vector3 = nsum.normalized()
 	var worst := 0.0
 	for n2 in cell_nodes:
 		var node2: BarMesh.BMNode = n2
-		if node2.contact_kind == BarMesh.BMNode.ContactFeature.NONE:
-			continue
-		worst = maxf(worst, absf(normal.dot(node2.contact_point - c)))
+		worst = maxf(worst, absf(normal.dot(node2.p - c)))
 	return worst
 
 
@@ -136,6 +133,9 @@ static func find_worst_cell_seed(bm: BarMesh, params: Params) -> Dictionary:
 		if not bool(ring.get("ok", false)):
 			continue
 		var nodes: Array = ring["nodes"]
+		# MakeBarBetweenNodesF needs ≥4 nodes; triangles stall the worst-first loop.
+		if nodes.size() < 4:
+			continue
 		if cell_xy_too_small(nodes, params):
 			continue
 		var r: float = cell_planar_tolerance(nodes)

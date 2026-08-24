@@ -13,6 +13,8 @@ const Contact = preload("res://barmesh/tool_contact.gd")
 @export var epsilon_mm: float = 0.01
 @export var stepover_mm: float = 6.0
 @export var angle_deg: float = 15.0
+## Cell planar tolerance (mm) — separate from XY epsilon (Julian 154).
+@export var planar_tol_mm: float = 0.01
 @export var max_refine_passes: int = 12
 ## Auto cell splits after bar refine. Interactive default 0 (Julian 149: button + N).
 @export var auto_cell_refine_passes: int = 0
@@ -134,7 +136,7 @@ func _refine_barmesh(bm: BarMesh, R: float, tris: Array, z_plane: float, z_above
 	params.epsilon_m = epsilon_mm * 0.001
 	params.stepover_m = stepover_mm * 0.001
 	params.angle_deg = angle_deg
-	params.coplanar_tol_m = epsilon_mm * 0.001
+	params.coplanar_tol_m = planar_tol_mm * 0.001
 	for _pass in range(max_refine_passes):
 		if my_run != _run_id:
 			return
@@ -162,13 +164,12 @@ func _refine_barmesh(bm: BarMesh, R: float, tris: Array, z_plane: float, z_above
 
 
 ## Split up to `count` worst out-of-tolerance cells (Julian CNC 149).
+## Rebuilds params each call so a tightened planar_tol_mm applies without rebake (154).
 func subdivide_next_cells(count: int) -> int:
 	if _playing or _last_bm == null or count <= 0:
 		return 0
-	var params: Subdiv.Params = _last_params
-	if params == null:
-		params = _make_params()
-		_last_params = params
+	var params: Subdiv.Params = _make_params()
+	_last_params = params
 	var done := 0
 	for _i in range(count):
 		if not _try_one_cell_split(_last_bm, params):
@@ -183,7 +184,7 @@ func _make_params() -> Subdiv.Params:
 	params.epsilon_m = epsilon_mm * 0.001
 	params.stepover_m = stepover_mm * 0.001
 	params.angle_deg = angle_deg
-	params.coplanar_tol_m = epsilon_mm * 0.001
+	params.coplanar_tol_m = planar_tol_mm * 0.001
 	return params
 
 

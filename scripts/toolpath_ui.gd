@@ -6,7 +6,8 @@ signal bake_requested(
 	tool_radius: float,
 	stepover: float,
 	sample_step: float,
-	z_stepdown: float
+	z_stepdown: float,
+	planar_tol: float
 )
 signal cell_subdivide_requested(count: int)
 
@@ -17,6 +18,7 @@ signal cell_subdivide_requested(count: int)
 @onready var sample_step: SpinBox = $Panel/VBox/SampleStep
 @onready var z_stepdown_label: Label = $Panel/VBox/ZStepdownLabel
 @onready var z_stepdown: SpinBox = $Panel/VBox/ZStepdown
+@onready var planar_tol: SpinBox = $Panel/VBox/PlanarTol
 @onready var cell_split_count: SpinBox = $Panel/VBox/CellSplitCount
 @onready var status: Label = $Panel/VBox/Status
 
@@ -45,9 +47,15 @@ func _ready() -> void:
 	sample_step.min_value = 0.001
 	sample_step.step = 0.001
 	sample_step.value = 0.01
+	$Panel/VBox/PlanarTolLabel.visible = true
+	planar_tol.visible = true
+	planar_tol.min_value = 0.001
+	planar_tol.max_value = 5.0
+	planar_tol.step = 0.001
+	planar_tol.value = 0.01
 	$Panel/VBox/Title.text = "Tool surface (CAD Z-up)"
 	$Panel/VBox/Bake.text = "Build tool surface"
-	status.text = "BarMesh refine: epsilon / stepover / angle. Cell splits: button."
+	status.text = "BarMesh refine: epsilon / stepover / angle / planar tol. Cell splits: button."
 	$Panel/VBox/Bake.pressed.connect(_on_bake)
 	cell_split_count.min_value = 1
 	cell_split_count.max_value = 200
@@ -95,12 +103,23 @@ func _preview() -> Node:
 
 func _on_bake() -> void:
 	status.text = "Building…"
-	bake_requested.emit("barmesh", tool_radius.value, stepover.value, sample_step.value, z_stepdown.value)
+	bake_requested.emit(
+		"barmesh",
+		tool_radius.value,
+		stepover.value,
+		sample_step.value,
+		z_stepdown.value,
+		planar_tol.value
+	)
 
 
 func _on_cell_split() -> void:
 	var n := int(cell_split_count.value)
 	status.text = "Subdividing next %d cells…" % n
+	# Push current planar tol so tighten-without-rebake works (Julian 154).
+	var viz := _preview()
+	if viz and viz.get("planar_tol_mm") != null:
+		viz.planar_tol_mm = planar_tol.value
 	cell_subdivide_requested.emit(n)
 
 

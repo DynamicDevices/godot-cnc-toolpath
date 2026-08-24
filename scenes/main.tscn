@@ -133,6 +133,17 @@ max_value = 10.0
 step = 0.1
 value = 1.0
 
+[node name="PlanarTolLabel" type="Label" parent="ToolpathUI/Panel/VBox"]
+layout_mode = 2
+text = "Planar tolerance (mm)"
+
+[node name="PlanarTol" type="SpinBox" parent="ToolpathUI/Panel/VBox"]
+layout_mode = 2
+min_value = 0.001
+max_value = 5.0
+step = 0.001
+value = 0.01
+
 [node name="ShowBars" type="CheckBox" parent="ToolpathUI/Panel/VBox"]
 layout_mode = 2
 button_pressed = true
