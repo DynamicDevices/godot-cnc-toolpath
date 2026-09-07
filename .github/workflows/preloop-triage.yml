@@ -1,0 +1,108 @@
+# Surface Preloop PR review comments. Label + sticky checklist only. No secrets.
+# Reviews themselves come from Preloop Cloud flow "DD - Pull Request Reviewer".
+
+name: preloop triage
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  triage:
+    name: label + checklist
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >
+      github.event.sender.login == 'preloop[bot]' &&
+      (
+        (github.event_name == 'issue_comment' &&
+         github.event.issue.pull_request != null &&
+         contains(github.event.comment.body, 'preloop-review:flow-id:pr-reviewer')) ||
+        (github.event_name == 'pull_request_review_comment' &&
+         contains(github.event.comment.body, 'preloop-review:flow-id:pr-reviewer'))
+      )
+    steps:
+      - name: Resolve PR number
+        id: pr
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "issue_comment" ]]; then
+            echo "number=${ISSUE_NUMBER}" >> "$GITHUB_OUTPUT"
+          else
+            echo "number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ensure label preloop-triage
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if ! gh label list --repo "$REPO" --limit 200 --json name \
+            --jq '.[].name' | grep -qx 'preloop-triage'; then
+            gh label create preloop-triage --repo "$REPO" \
+              --color BFD4F2 --description "Preloop left PR review findings to triage"
+          fi
+
+      - name: Label PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.pr.outputs.number }}
+        run: |
+          set -euo pipefail
+          gh pr edit "$PR" --repo "$REPO" --add-label preloop-triage
+
+      - name: Upsert sticky triage checklist
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.pr.outputs.number }}
+          COMMENT_URL: ${{ github.event.comment.html_url }}
+        run: |
+          set -euo pipefail
+          MARKER='<!-- preloop-triage-checklist -->'
+          BODY=$(cat <<EOF
+          ${MARKER}
+          ## Preloop triage checklist
+
+          Preloop posted a review on this PR ([comment](${COMMENT_URL})).
+          Label **\`preloop-triage\`** was applied so the finding is not lost after merge.
+
+          ### Fetch (local / agent)
+
+          \`\`\`bash
+          ./scripts/fetch-preloop-pr.sh ${PR}
+          \`\`\`
+
+          ### Done when
+          - [ ] Findings read (summary + inline)
+          - [ ] Fixes landed or consciously deferred
+          - [ ] Label \`preloop-triage\` removed
+
+          Detail: [docs/CI.md](https://github.com/${REPO}/blob/main/docs/CI.md).
+          EOF
+          )
+          BODY="$(printf '%s\n' "$BODY" | sed 's/^          //')"
+
+          existing="$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate \
+            --jq ".[] | select(.body | contains(\"${MARKER}\")) | .id" | head -n1 || true)"
+          if [[ -n "${existing}" ]]; then
+            gh api --method PATCH "repos/${REPO}/issues/comments/${existing}" \
+              -f body="$BODY" >/dev/null
+          else
+            gh api --method POST "repos/${REPO}/issues/${PR}/comments" \
+              -f body="$BODY" >/dev/null
+          fi
